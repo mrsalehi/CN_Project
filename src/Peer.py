@@ -42,7 +42,37 @@ class Peer:
         :type is_root: bool
         :type root_address: tuple
         """
-        pass
+        self.server_ip = server_ip
+        self.packet_factory = PacketFactory()
+        self.server_port = server_port
+        self.root_address = root_address
+        self.is_root = is_root
+        self.stream = Stream()
+
+        if is_root:
+            self.graph = NetworkGraph()
+            pass
+        else:
+            self._register()
+
+        self.user_interface = None
+        self.t_run = threading.Thread(target=self.run, args=())
+        self.t_run.run()
+        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
+
+
+    def _register(self):
+        self.stream.add_node(self.root_address, set_register_connection=True)
+        reg_pack = self.packet_factory.new_register_packet()  ## TODO: fill-in the parameters.
+        self.stream.add_message_to_out_buff(self.root_address, reg_pack)
+        #self.stream.send_messages_to_node()
+        time.sleep(0.5)  # TODO:check this out!
+        in_buff = self.stream.read_in_buf()
+        reg_response_pack = self.packet_factory.parse_buffer(in_buff)
+
+        self.stream.add_message_to_out_buff(self.root_address, reg_response_pack)
+
+
 
     def start_user_interface(self):
         """
@@ -50,7 +80,7 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
 
     def handle_user_interface_buffer(self):
         """
@@ -73,7 +103,7 @@ class Peer:
 
         Code design suggestions:
             1. Parse server in_buf of the stream.
-            2. Handle all packets were received from our Stream server.
+            2. Handle all packets received from our Stream server.
             3. Parse user_interface_buffer to make message packets.
             4. Send packets stored in nodes buffer of our Stream object.
             5. ** sleep the current thread for 2 seconds **
@@ -85,7 +115,12 @@ class Peer:
 
         :return:
         """
-        pass
+        while True:
+            pass
+            in_buff = self.stream.read_in_buf()
+            packet = self.packet_factory.parse_buffer()
+            self.handle_packet(packet)
+            time.sleep(2)
 
     def run_reunion_daemon(self):
         """
@@ -112,7 +147,13 @@ class Peer:
 
         :return:
         """
-        pass
+        a = 10
+        while True:
+            if self.is_root:
+                pass
+            else:
+                pass
+            time.sleep(a)
 
     def send_broadcast_packet(self, broadcast_packet):
         """
@@ -142,7 +183,25 @@ class Peer:
         :type packet Packet
 
         """
-        pass
+        ## TODO: check packet validation
+        type = packet.get_type()
+        if type is 'Register':
+            self.__handle_register_packet(packet)
+        elif type is 'Advertise':
+            self.__handle_advertise_packet(packet)
+        elif type is 'Register':
+            self.__handle_register_packet(packet)
+        elif type is 'Join':
+            self.__handle_join_packet(packet)
+        elif type is 'Message':
+            self.__handle_message_packet(packet)
+        elif type is 'Reunion':
+            self.__handle_reunion_packet(packet)
+        else:
+            raise NotImplemented
+
+
+
 
     def __check_registered(self, source_address):
         """
@@ -201,7 +260,15 @@ class Peer:
         :type packet Packet
         :return:
         """
-        pass
+        if not self.is_root:
+            pass
+        else:
+            address = (packet.get_source_server_ip(), packet.get_source_server_port())
+            self.stream.add_node(address, set_register_connection=True)
+            register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+            self.stream.add_message_to_out_buff(address, register_response_packet)
+            pass
+
 
     def __check_neighbour(self, address):
         """
@@ -214,7 +281,7 @@ class Peer:
         :return: Whether is address in our neighbours or not.
         :rtype: bool
         """
-        pass
+        return address in self.neighbors
 
     def __handle_message_packet(self, packet):
         """

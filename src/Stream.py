@@ -18,24 +18,25 @@ class Stream:
         :param port: 5 characters
         """
 
-        ip = Node.parse_ip(ip)
-        port = Node.parse_port(port)
-
+        self.ip = Node.parse_ip(ip)
+        self.port = Node.parse_port(port)
+        self.nodes = {}
         self._server_in_buf = []
-
-        def callback(address, queue, data):
-            """
-            The callback function will run when a new data received from server_buffer.
-
-            :param address: Source address.
-            :param queue: Response queue.
-            :param data: The data received from the socket.
-            :return:
-            """
-            queue.put(bytes('ACK', 'utf8'))
-            self._server_in_buf.append(data)
+        self.tcp_server = TCPServer()
 
         pass
+
+    def callback(self, address, queue, data):
+        """
+        The callback function will run when a new data received from server_buffer.
+
+        :param address: Source address.
+        :param queue: Response queue.
+        :param data: The data received from the socket.
+        :return:
+        """
+        queue.put(bytes('ACK', 'utf8'))
+        self._server_in_buf.append(data)
 
     def get_server_address(self):
         """
@@ -43,7 +44,7 @@ class Stream:
         :return: Our TCPServer address
         :rtype: tuple
         """
-        pass
+        return self.ip, self.port
 
     def clear_in_buff(self):
         """
@@ -65,7 +66,7 @@ class Stream:
 
         :return:
         """
-        pass
+
 
     def remove_node(self, node):
         """
@@ -79,6 +80,7 @@ class Stream:
 
         :return:
         """
+        node.close()
         pass
 
     def get_node_by_server(self, ip, port):
@@ -110,7 +112,13 @@ class Stream:
 
         :return:
         """
-        pass
+        ip, port = address
+        node = self.get_node_by_server(ip, port)
+        # TODO: convert it to byte message
+        if node is not None:
+            node.add_message_to_out_buff(message)
+        else:
+            pass
 
     def read_in_buf(self):
         """
