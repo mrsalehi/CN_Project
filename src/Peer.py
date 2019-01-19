@@ -1,8 +1,8 @@
-from Stream import Stream
-from Packet import Packet, PacketFactory
-from UserInterface import UserInterface
-from tools.SemiNode import SemiNode
-from tools.NetworkGraph import NetworkGraph, GraphNode
+from .Stream import Stream
+from .Packet import Packet, PacketFactory
+from .UserInterface import UserInterface
+from .tools.SemiNode import SemiNode
+from .tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
@@ -60,19 +60,20 @@ class Peer:
         self.t_run.run()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
 
-
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
-        reg_pack = self.packet_factory.new_register_packet()  ## TODO: fill-in the parameters.
+        reg_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters.
         self.stream.add_message_to_out_buff(self.root_address, reg_pack)
-        #self.stream.send_messages_to_node()
-        time.sleep(0.5)  # TODO:check this out!
+        self.stream.send_out_buf_messages()
+
+        # TODO: inaro pak kon
+        time.sleep(0.5)  # TODO: check this out!
         in_buff = self.stream.read_in_buf()
-        reg_response_pack = self.packet_factory.parse_buffer(in_buff)
-
-        self.stream.add_message_to_out_buff(self.root_address, reg_response_pack)
-
-
+        reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
+        # advertise
+        adv_pack = self.packet_factory.new_advertise_packet() # TODO
+        self.stream.add_message_to_out_buff(self.root_address, adv_pack)
+        self.stream.send_out_buf_messages()
 
     def start_user_interface(self):
         """
@@ -116,10 +117,10 @@ class Peer:
         :return:
         """
         while True:
-            pass
             in_buff = self.stream.read_in_buf()
-            packet = self.packet_factory.parse_buffer()
+            packet = self.packet_factory.parse_buffer(in_buff)
             self.handle_packet(packet)
+            self.stream.send_out_buf_messages()
             time.sleep(2)
 
     def run_reunion_daemon(self):
@@ -183,14 +184,12 @@ class Peer:
         :type packet Packet
 
         """
-        ## TODO: check packet validation
+        # TODO: check packet validation
         type = packet.get_type()
         if type is 'Register':
             self.__handle_register_packet(packet)
         elif type is 'Advertise':
             self.__handle_advertise_packet(packet)
-        elif type is 'Register':
-            self.__handle_register_packet(packet)
         elif type is 'Join':
             self.__handle_join_packet(packet)
         elif type is 'Message':
@@ -199,8 +198,6 @@ class Peer:
             self.__handle_reunion_packet(packet)
         else:
             raise NotImplemented
-
-
 
 
     def __check_registered(self, source_address):
@@ -243,6 +240,28 @@ class Peer:
 
         :return:
         """
+        if self.is_root:
+            if packet.is_request():
+                # TODO: get parent
+                parent_ip = None
+                parent_port = None
+
+                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO
+                address = (packet.get_source_server_ip(), packet.get_source_server_port())
+                self.stream.add_message_to_out_buff(address, adv_res_pack)
+            else:
+                pass
+        else:
+            if not packet.is_request():
+                body = packet.get_body()
+                parent_ip = body[3: 18]
+                parent_port = body[-5:]
+                join_pack = self.packet_factory.new_join_packet()  # TODO: fill in
+                address = (parent_ip, parent_port)
+                self.stream.add_node(address)
+                self.stream.add_message_to_out_buff(address, join_pack)
+            else:
+                pass
         pass
 
     def __handle_register_packet(self, packet):
@@ -261,13 +280,20 @@ class Peer:
         :return:
         """
         if not self.is_root:
-            pass
+            if packet.is_request():
+                pass
+            else:
+                # TODO: check register response packet
+                adv_pack = self.packet_factory.new_advertise_packet()  # TODO
+                self.stream.add_message_to_out_buff(self.root_address, adv_pack)
         else:
-            address = (packet.get_source_server_ip(), packet.get_source_server_port())
-            self.stream.add_node(address, set_register_connection=True)
-            register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
-            self.stream.add_message_to_out_buff(address, register_response_packet)
-            pass
+            if not packet.is_request():
+                pass
+            else:
+                address = (packet.get_source_server_ip(), packet.get_source_server_port())
+                self.stream.add_node(address, set_register_connection=True)
+                register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+                self.stream.add_message_to_out_buff(address, register_response_packet)
 
 
     def __check_neighbour(self, address):
@@ -336,6 +362,8 @@ class Peer:
 
         :return:
         """
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
+        self.stream.add_node(address)
         pass
 
     def __get_neighbour(self, sender):

@@ -67,7 +67,6 @@ class Stream:
         :return:
         """
 
-
     def remove_node(self, node):
         """
         Remove the node from our Stream.
@@ -142,6 +141,7 @@ class Stream:
 
         :return:
         """
+
         pass
 
     def send_out_buf_messages(self, only_register=False):
@@ -150,4 +150,8 @@ class Stream:
 
         :return:
         """
+        for node in self.nodes:
+            # if only_register is True:
+            self.send_messages_to_node(node)
+
         pass

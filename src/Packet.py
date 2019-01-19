@@ -263,6 +263,10 @@ class Packet:
         """
         pass
 
+    def is_request(self):
+        # TODO
+        pass
+
 
 class PacketFactory:
     """
