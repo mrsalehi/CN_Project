@@ -48,6 +48,7 @@ class Peer:
         self.packet_factory = PacketFactory()
         self.root_address = root_address
         self.is_root = is_root
+        self.parent = None
 
         if is_root:
             root = GraphNode((server_ip, server_port))
@@ -257,7 +258,7 @@ class Peer:
                 body = packet.get_body()
                 parent_ip = body[3: 18]
                 parent_port = body[-5:]
-                join_pack = self.packet_factory.new_join_packet()  # TODO: fill in
+                join_pack = self.packet_factory.new_join_packet()  # TODO: fill-in the parameters
                 address = (parent_ip, parent_port)
                 self.stream.add_node(address)
                 self.stream.add_message_to_out_buff(address, join_pack)
@@ -327,13 +328,17 @@ class Peer:
 
         :return:
         """
-        source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
-        brdcast_packet = self.packet_factory.new_message_packet((self.server_ip, self.server_port), packet.get_body())  # TODO: fill in
-        # self.send_broadcast_packet(brdcast_packet)
-        for node in self.stream.nodes:
-            if node.server_ip != source_ip or node.server_port != source_port:
-                self.stream.add_message_to_out_buff(brdcast_packet, )
-        pass
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
+        brdcast_pack = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        if address in self.stream.nodes.keys():
+            for node in self.stream.nodes:
+                node_address = (node.server_ip, node.server_port)
+                if (node.server_ip, node.server_port) != address:
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_pack)
+
+        else:
+            pass  # TODO: Raise an error if there is no node with given address
+
 
     def __handle_reunion_packet(self, packet):
         """
@@ -358,10 +363,13 @@ class Peer:
         :param packet: Arrived reunion packet
         :return:
         """
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
         if self.is_root:
-            source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
-
-        pass
+            pass
+        else:
+            reunion_pack = self.packet_factory.new_reunion_packet()  ## TODO: fill-in the parameters
+            # TODO: append the peer's address to the end of message
+            self.stream.add_message_to_out_buff(self.parent, reunion_pack)
 
     def __handle_join_packet(self, packet):
         """
