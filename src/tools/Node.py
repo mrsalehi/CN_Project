@@ -21,6 +21,7 @@ class Node:
         self.server_port = Node.parse_port(server_address[1])
         self.client_socket = ClientSocket(mode=None, port=None, )  # TODO: fill-in the parameters
         self.set_root = set_root
+        self.is_register = set_register
 
         print("Server Address: ", server_address)
 

@@ -9,19 +9,22 @@ class GraphNode:
         :type address: tuple
 
         """
-        pass
+        self.address = address
+        self.parent = None
+        self.children = []
 
     def set_parent(self, parent):
-        pass
+        self.parent = parent
 
     def set_address(self, new_address):
-        pass
+        self.address = new_address
 
     def __reset(self):
-        pass
+        self.address = None
+        self.parent = None
 
     def add_child(self, child):
-        pass
+        self.children.append(child)
 
 
 class NetworkGraph:
