@@ -43,11 +43,12 @@ class Peer:
         :type root_address: tuple
         """
         self.server_ip = server_ip
-        self.server_port = server_port
-        self.stream = Stream()
         self.packet_factory = PacketFactory()
+        self.server_port = server_port
         self.root_address = root_address
         self.is_root = is_root
+        self.stream = Stream()
+        self.parent = None
 
         if is_root:
             self.graph = NetworkGraph()
@@ -55,8 +56,8 @@ class Peer:
         else:
             self._register()
 
-        self.user_interface = UserInterface()  # TODO: args
-        self.start_user_interface()
+        self.user_interface = None
+        self.is_registered = False
         self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.run()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
@@ -75,6 +76,7 @@ class Peer:
         adv_pack = self.packet_factory.new_advertise_packet() # TODO
         self.stream.add_message_to_out_buff(self.root_address, adv_pack)
         self.stream.send_out_buf_messages()
+        self.is_registered = True
 
     def start_user_interface(self):
         """
@@ -82,7 +84,7 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()  ## TODO: fill in the parameters!
 
     def handle_user_interface_buffer(self):
         """
@@ -169,7 +171,7 @@ class Peer:
 
         :return:
         """
-        pass
+
 
     def handle_packet(self, packet):
         """
@@ -184,6 +186,7 @@ class Peer:
         :type packet Packet
 
         """
+        # TODO: check packet validation
         type = packet.get_type()
         if type is 'Register':
             self.__handle_register_packet(packet)
@@ -198,6 +201,7 @@ class Peer:
         else:
             raise NotImplemented
 
+
     def __check_registered(self, source_address):
         """
         If the Peer is the root of the network we need to find that is a node registered or not.
@@ -207,11 +211,7 @@ class Peer:
 
         :return:
         """
-        if self.is_root:
-            for node in self.stream.nodes:
-                if source_address == (node.server_ip, node.server_port):
-                    return True
-        return False
+        pass
 
     def __handle_advertise_packet(self, packet):
         """
@@ -297,6 +297,7 @@ class Peer:
                 register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
                 self.stream.add_message_to_out_buff(address, register_response_packet)
 
+
     def __check_neighbour(self, address):
         """
         It checks is the address in our neighbours array or not.
@@ -308,7 +309,7 @@ class Peer:
         :return: Whether is address in our neighbours or not.
         :rtype: bool
         """
-        pass
+        return address in self.neighbors
 
     def __handle_message_packet(self, packet):
         """
@@ -349,10 +350,6 @@ class Peer:
         :param packet: Arrived reunion packet
         :return:
         """
-        if self.is_root:
-            source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
-
-
         pass
 
     def __handle_join_packet(self, packet):

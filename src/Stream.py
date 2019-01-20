@@ -114,8 +114,8 @@ class Stream:
         ip, port = address
         node = self.get_node_by_server(ip, port)
         if node is not None:
-            str_msg = message.get_header() + message.get_body()
-            node.add_message_to_out_buff(str_msg)
+            buff = message.get_buff()  ## TODO: Not sure about this!
+            node.add_message_to_out_buff(buff)
 
         else:
             raise NotImplemented  ## TODO: Refactoring may be required...
