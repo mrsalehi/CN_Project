@@ -170,6 +170,7 @@ class Peer:
 
         :return:
         """
+
         pass
 
     def handle_packet(self, packet):
@@ -306,6 +307,10 @@ class Peer:
         :return: Whether is address in our neighbours or not.
         :rtype: bool
         """
+        for node in self.stream.nodes:
+            if (node.server_ip, node.server_port) == address:
+                return True
+        return False
         pass
 
     def __handle_message_packet(self, packet):
@@ -322,6 +327,12 @@ class Peer:
 
         :return:
         """
+        source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
+        brdcast_packet = self.packet_factory.new_message_packet((self.server_ip, self.server_port), packet.get_body())  # TODO: fill in
+        # self.send_broadcast_packet(brdcast_packet)
+        for node in self.stream.nodes:
+            if node.server_ip != source_ip or node.server_port != source_port:
+                self.stream.add_message_to_out_buff(brdcast_packet, )
         pass
 
     def __handle_reunion_packet(self, packet):
@@ -349,7 +360,6 @@ class Peer:
         """
         if self.is_root:
             source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
-
 
         pass
 
