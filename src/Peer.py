@@ -158,7 +158,6 @@ class Peer:
 
     def send_broadcast_packet(self, broadcast_packet):
         """
-
         For setting broadcast packets buffer into Nodes out_buff.
 
         Warnings:
@@ -307,7 +306,7 @@ class Peer:
         :return: Whether is address in our neighbours or not.
         :rtype: bool
         """
-        return address in self.neighbors
+        pass
 
     def __handle_message_packet(self, packet):
         """

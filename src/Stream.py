@@ -36,7 +36,6 @@ class Stream:
         self.nodes = {}
         self._server_in_buf = []
 
-
     def get_server_address(self):
         """
 
@@ -114,11 +113,12 @@ class Stream:
         """
         ip, port = address
         node = self.get_node_by_server(ip, port)
-        # TODO: convert it to byte message
         if node is not None:
-            node.add_message_to_out_buff(message)
+            str_msg = message.get_header() + message.get_body()
+            node.add_message_to_out_buff(str_msg)
+
         else:
-            pass
+            raise NotImplemented  ## TODO: Refactoring may be required...
 
     def read_in_buf(self):
         """
@@ -142,7 +142,7 @@ class Stream:
 
         :return:
         """
-        pass
+        node.send_message()
 
     def send_out_buf_messages(self, only_register=False):
         """
@@ -151,7 +151,7 @@ class Stream:
         :return:
         """
         for node in self.nodes:
-            # if only_register is True:
-            self.send_messages_to_node(node)
-
-        pass
+            if not only_register:
+                self.send_messages_to_node(node)
+            else:
+                pass  # TODO: Handle this exception
