@@ -284,6 +284,7 @@ class PacketFactory:
         :rtype: Packet
 
         """
+        # TODO: packet validation
         pass
 
     @staticmethod
