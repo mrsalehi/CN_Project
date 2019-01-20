@@ -161,6 +161,7 @@ class Peer:
 
     def send_broadcast_packet(self, broadcast_packet):
         """
+
         For setting broadcast packets buffer into Nodes out_buff.
 
         Warnings:
@@ -212,7 +213,7 @@ class Peer:
         """
         if self.is_root:
             for node in self.stream.nodes:
-                if source_address == (node.server_ip, node.server_port):
+                if source_address == node.get_server_address():
                     return True
         return False
 
@@ -247,10 +248,12 @@ class Peer:
         """
         if self.is_root:
             if packet.is_request():
-                address = (packet.get_source_server_ip(), packet.get_source_server_port())
+                source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
+                address = (source_ip, source_port)
                 parent_ip, parent_port = self.__get_neighbour(sender=address)
                 adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO
                 self.stream.add_message_to_out_buff(address, adv_res_pack)
+                self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
             else:
                 pass
         else:
@@ -309,7 +312,7 @@ class Peer:
         :rtype: bool
         """
         for node in self.stream.nodes:
-            if (node.server_ip, node.server_port) == address:
+            if node.get_server_address() == address:
                 return True
         return False
         pass
@@ -332,13 +335,12 @@ class Peer:
         brdcast_pack = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
         if address in self.stream.nodes.keys():
             for node in self.stream.nodes:
-                node_address = (node.server_ip, node.server_port)
-                if (node.server_ip, node.server_port) != address:
+                node_address = node.get_server_address()
+                if node.get_server_address() != address:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_pack)
 
         else:
             pass  # TODO: Raise an error if there is no node with given address
-
 
     def __handle_reunion_packet(self, packet):
         """
@@ -365,9 +367,11 @@ class Peer:
         """
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         if self.is_root:
-            pass
+            rnback_pack = self.packet_factory.new_reunion_packet()  # make reunion hello back
+            for node in self.stream.nodes:
+                self.stream.add_message_to_out_buff(node.get_server_address(), rnback_pack)
         else:
-            reunion_pack = self.packet_factory.new_reunion_packet()  ## TODO: fill-in the parameters
+            reunion_pack = self.packet_factory.new_reunion_packet()  # TODO: fill-in the parameters
             # TODO: append the peer's address to the end of message
             self.stream.add_message_to_out_buff(self.parent, reunion_pack)
 

@@ -68,14 +68,26 @@ class NetworkGraph:
         pass
 
     def find_node(self, ip, port):
-
-        pass
+        address = (ip, port)
+        visited, queue = set(), collections.deque([self.root])
+        visited.add(self.root)
+        while queue:
+            v = queue.popleft()
+            for u in v.children:
+                if u not in visited and u.live:
+                    if u.address == address:
+                        return u
+                    visited.add(u)
+                    queue.append(u)
+        return None
 
     def turn_on_node(self, node_address):
-        pass
+        node = self.find_node(node_address)
+        node.alive = True
 
     def turn_off_node(self, node_address):
-        pass
+        node = self.find_node(node_address)
+        node.alive = False
 
     def remove_node(self, node_address):
         pass
@@ -99,4 +111,7 @@ class NetworkGraph:
 
         :return:
         """
-        pass
+        node = GraphNode((ip, port))
+        parent = self.find_node(father_address)
+        node.set_parent(parent)
+        parent.add_child(node)
