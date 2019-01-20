@@ -17,26 +17,25 @@ class Stream:
         :param ip: 15 characters
         :param port: 5 characters
         """
+        def callback(address, queue, data):
+            """
+            The callback function will run when a new data received from server_buffer.
 
+            :param address: Source address.
+            :param queue: Response queue.
+            :param data: The data received from the socket.
+            :return:
+            """
+            queue.put(bytes('ACK', 'utf8'))
+            self._server_in_buf.append(data)
+
+        self.tcp_server = TCPServer(mode=None, port=None, read_callback=callback)  # TODO: Change the Nones to correct values
+        self.t_tcP_server = threading.Thread(target=self.tcp_server.run(), args=())
         self.ip = Node.parse_ip(ip)
         self.port = Node.parse_port(port)
         self.nodes = {}
         self._server_in_buf = []
-        self.tcp_server = TCPServer()
 
-        pass
-
-    def callback(self, address, queue, data):
-        """
-        The callback function will run when a new data received from server_buffer.
-
-        :param address: Source address.
-        :param queue: Response queue.
-        :param data: The data received from the socket.
-        :return:
-        """
-        queue.put(bytes('ACK', 'utf8'))
-        self._server_in_buf.append(data)
 
     def get_server_address(self):
         """
@@ -66,6 +65,7 @@ class Stream:
 
         :return:
         """
+        self.nodes[server_address] = Node(server_address=server_address, set_register=set_register_connection)
 
     def remove_node(self, node):
         """
@@ -80,7 +80,7 @@ class Stream:
         :return:
         """
         node.close()
-        pass
+        del self.nodes[(node.server_ip, node.server_port )]  ## TODO: We may need to refactor it later!
 
     def get_node_by_server(self, ip, port):
         """
@@ -96,7 +96,8 @@ class Stream:
         :return: The node that input address.
         :rtype: Node
         """
-        pass
+        ip, port = Node.parse_ip(ip), Node.parse_port(port)
+        return self.nodes.get((ip, port), None)
 
     def add_message_to_out_buff(self, address, message):
         """
@@ -141,7 +142,6 @@ class Stream:
 
         :return:
         """
-
         pass
 
     def send_out_buf_messages(self, only_register=False):

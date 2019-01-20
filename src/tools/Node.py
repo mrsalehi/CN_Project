@@ -1,4 +1,4 @@
-from src.tools.simpletcp.clientsocket import ClientSocket
+from tools.simpletcp.clientsocket import ClientSocket
 
 
 class Node:
@@ -13,12 +13,14 @@ class Node:
             1. Insert an exception handler when initializing the ClientSocket; when a socket closed here we will face to
                an exception and we should detach this Node and clear its output buffer.
 
-        :param server_address:
+        :param server_address: tuple
         :param set_root:
         :param set_register:
         """
         self.server_ip = Node.parse_ip(server_address[0])
         self.server_port = Node.parse_port(server_address[1])
+        self.client_socket = ClientSocket(mode=None, port=None, )  # TODO: fill-in the parameters
+        self.set_root = set_root
 
         print("Server Address: ", server_address)
 
@@ -31,7 +33,9 @@ class Node:
 
         :return:
         """
-        pass
+        self.client_socket.send(self.out_buff)
+        self.out_buff.clear()
+
 
     def add_message_to_out_buff(self, message):
         """
@@ -47,7 +51,7 @@ class Node:
         Closing client's object.
         :return:
         """
-        self.client.close()
+        self.client_socket.close()
 
     def get_server_address(self):
         """
