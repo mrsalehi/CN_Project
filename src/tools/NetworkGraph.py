@@ -1,3 +1,4 @@
+import collections
 import time
 
 
@@ -11,6 +12,7 @@ class GraphNode:
         """
         self.address = address
         self.parent = None
+        self.alive = True
         self.children = []
 
     def set_parent(self, parent):
@@ -33,7 +35,7 @@ class NetworkGraph:
         root.alive = True
         self.nodes = [root]
 
-    def find_live_node(self, sender):
+    def find_live_node(self, sender):      # TODO: use sender :))
         """
         Here we should find a neighbour for the sender.
         Best neighbour is the node who is nearest the root and has not more than one child.
@@ -51,6 +53,18 @@ class NetworkGraph:
         :return: Best neighbour for sender.
         :rtype: GraphNode
         """
+        if self.find_node(sender) is not None:
+            return None    # TODO: exception
+        visited, queue = set(), collections.deque([self.root])
+        visited.add(self.root)
+        while queue:
+            v = queue.popleft()
+            for u in v.children:
+                if u not in visited and u.live:
+                    if len(u.children) < 2:
+                        return u
+                    visited.add(u)
+                    queue.append(u)
         pass
 
     def find_node(self, ip, port):

@@ -50,7 +50,8 @@ class Peer:
         self.is_root = is_root
 
         if is_root:
-            self.graph = NetworkGraph()
+            root = GraphNode((server_ip, server_port))
+            self.graph = NetworkGraph(root)
             pass
         else:
             self._register()
@@ -244,12 +245,9 @@ class Peer:
         """
         if self.is_root:
             if packet.is_request():
-                # TODO: get parent
-                parent_ip = None
-                parent_port = None
-
-                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO
                 address = (packet.get_source_server_ip(), packet.get_source_server_port())
+                parent_ip, parent_port = self.__get_neighbour(sender=address)
+                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO
                 self.stream.add_message_to_out_buff(address, adv_res_pack)
             else:
                 pass
@@ -382,4 +380,7 @@ class Peer:
         :param sender: Sender of the packet
         :return: The specified neighbour for the sender; The format is like ('192.168.001.001', '05335').
         """
-        pass
+        if not self.is_root:
+            return None
+        parent = self.graph.find_live_node(sender)
+        return parent.address
