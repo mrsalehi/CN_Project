@@ -342,7 +342,7 @@ class PacketFactory:
         :rtype Packet
 
         """
-        frame = PacketFactory.new_header(type=3, length=4,
+        frame = PacketFactory.new_header(type=3, length=4, \
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend('JOIN'.encode('utf8'))
 
@@ -360,7 +360,7 @@ class PacketFactory:
         :return: New Message packet.
         :rtype: Packet
         """
-        frame = PacketFactory.new_header(type=4, length=len(message),
+        frame = PacketFactory.new_header(type=4, length=len(message), \
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend(message.encode('utf8'))
 
@@ -378,7 +378,13 @@ class PacketFactory:
         :return New reunion packet.
         :rtype Packet
         """
-        pass
+        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4), \
+                                         source_ip=source_address[0], source_port=source_address[1])
+        frame.extend(type.encode('utf8'))
+        frame.extend(len(nodes_array).encode('utf8'))
+        for ip, port in nodes_array:
+            frame.extend(ip.encode('utf8'))
+            frame.extend(port.encode('utf8'))
 
     @staticmethod
     def parse_buffer(buffer):
@@ -392,6 +398,4 @@ class PacketFactory:
 
         """
         # TODO: packet validation
-        # pack_into()
-        pass
-
+        return Packet(buffer)
