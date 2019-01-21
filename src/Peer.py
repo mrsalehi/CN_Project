@@ -42,13 +42,14 @@ class Peer:
         :type is_root: bool
         :type root_address: tuple
         """
-        self.server_ip = server_ip
-        self.server_port = server_port
-        self.stream = Stream()
+        self.server_address = (server_ip, server_port)
+        self.stream = Stream(server_ip, server_port)
         self.packet_factory = PacketFactory()
         self.root_address = root_address
         self.is_root = is_root
-        self.parent = None
+        self.parent = None  # address of the parent node which will be a tuple
+        self._last_reunion_time = None  # last time a reunion hello packet was sent
+        self._reunion_mode = None  # either 'pending' or 'accepted'
 
         if is_root:
             root = GraphNode((server_ip, server_port))
@@ -57,11 +58,12 @@ class Peer:
         else:
             self._register()
 
-        self.user_interface = UserInterface()  # TODO: args
+        self.user_interface = None
         self.start_user_interface()
-        self.t_run = threading.Thread(target=self.run, args=())
+        self.t_run = threading.Thread(target=self.run, args=())  # TODO: Not sure about this
         self.t_run.run()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
+        self.t_run_reunion_daemon.run()
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
@@ -77,6 +79,7 @@ class Peer:
         adv_pack = self.packet_factory.new_advertise_packet() # TODO
         self.stream.add_message_to_out_buff(self.root_address, adv_pack)
         self.stream.send_out_buf_messages()
+        self.mode = True  # TODO: Not sure about this!!
 
     def start_user_interface(self):
         """
@@ -84,7 +87,7 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
 
     def handle_user_interface_buffer(self):
         """
@@ -120,11 +123,14 @@ class Peer:
         :return:
         """
         while True:
-            in_buff = self.stream.read_in_buf()
-            packet = self.packet_factory.parse_buffer(in_buff)
-            self.handle_packet(packet)
-            self.stream.send_out_buf_messages()
-            time.sleep(2)
+            if self.mode:
+                in_buff = self.stream.read_in_buf()
+                packet = self.packet_factory.parse_buffer(in_buff)
+                self.handle_packet(packet)
+                self.stream.send_out_buf_messages()
+                time.sleep(2)
+            else:
+                pass
 
     def run_reunion_daemon(self):
         """
@@ -151,13 +157,15 @@ class Peer:
 
         :return:
         """
-        a = 10
         while True:
+            time.sleep(4)
             if self.is_root:
                 pass
             else:
-                pass
-            time.sleep(a)
+                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: Not sure about this
+                self.stream.add_message_to_out_buff(self.parent, reunion_packet)
+                self.last_reunion_time = time.time()
+                self._reunion_mode = 'pending'
 
     def send_broadcast_packet(self, broadcast_packet):
         """
@@ -172,8 +180,9 @@ class Peer:
 
         :return:
         """
-
-        pass
+        msg = Packet
+        for node in self.stream.nodes:
+            self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet)
 
     def handle_packet(self, packet):
         """
@@ -248,10 +257,10 @@ class Peer:
         """
         if self.is_root:
             if packet.is_request():
-                source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
+                source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
                 address = (source_ip, source_port)
                 parent_ip, parent_port = self.__get_neighbour(sender=address)
-                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO
+                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
                 self.stream.add_message_to_out_buff(address, adv_res_pack)
                 self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
             else:
@@ -315,7 +324,6 @@ class Peer:
             if node.get_server_address() == address:
                 return True
         return False
-        pass
 
     def __handle_message_packet(self, packet):
         """
@@ -332,13 +340,12 @@ class Peer:
         :return:
         """
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
-        brdcast_pack = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
         if address in self.stream.nodes.keys():
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
-                if node.get_server_address() != address:
-                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_pack)
-
+                if node_address != address:
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
         else:
             pass  # TODO: Raise an error if there is no node with given address
 
@@ -367,13 +374,36 @@ class Peer:
         """
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         if self.is_root:
-            rnback_pack = self.packet_factory.new_reunion_packet()  # make reunion hello back
+            reunion_back_packet = self.packet_factory.new_reunion_packet()  # make reunion hello back
             for node in self.stream.nodes:
-                self.stream.add_message_to_out_buff(node.get_server_address(), rnback_pack)
+                self.stream.add_message_to_out_buff(node.get_server_address(), reunion_back_packet)
         else:
-            reunion_pack = self.packet_factory.new_reunion_packet()  # TODO: fill-in the parameters
-            # TODO: append the peer's address to the end of message
-            self.stream.add_message_to_out_buff(self.parent, reunion_pack)
+            body = packet.get_body()
+            str = body[:3]
+            body = packet.get_body()
+            n_entries = body[3:5]  # TODO: Make sure if it is the number of ip,port pairs in the msg.
+            entries = body[5:]
+            l = len(entries)
+
+            if str == 'REQ':
+                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: fill-in the parameters
+                # TODO: append the peer's address to the end of message
+                msg = None # TODO: Convert the packet to byte message
+                self.stream.add_message_to_out_buff(self.parent, message=msg)
+            elif str == 'RES':
+                if l == 20:  # we are the end node!
+                    self._reunion_mode = 'acceptance'
+                else:  # we are not the end node! forward the packet!
+                    entries = entries[20:]
+                    nodes_array = [(entries[i:i+15], entries[i+15:i+20]) for i in range(n_entries)]
+                    next_node_addr = nodes_array[0]
+                    reunion_packet = self.packet_factory.\
+                        new_reunion_packet('RES', self.server_address, nodes_array)  ## TODO: fill-in the parameters
+
+                    msg = None # TODO: Convert the packet to byte message
+                    self.stream.add_message_to_out_buff(next_node_addr, message=msg)
+            else:
+                pass  # TODO: Raise an error in this case
 
     def __handle_join_packet(self, packet):
         """
@@ -402,7 +432,8 @@ class Peer:
         :param sender: Sender of the packet
         :return: The specified neighbour for the sender; The format is like ('192.168.001.001', '05335').
         """
-        if not self.is_root:
+        if self.is_root:
             return None
+        # The node is the root in this case
         parent = self.graph.find_live_node(sender)
         return parent.address
