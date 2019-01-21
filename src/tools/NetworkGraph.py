@@ -90,7 +90,16 @@ class NetworkGraph:
         node.alive = False
 
     def remove_node(self, node_address):
-        pass
+        node = self.find_node(node_address)
+        visited, queue = set(), collections.deque([node])
+        visited.add(node)
+        while queue:
+            v = queue.popleft()
+            for u in v.children:
+                if u not in visited and u.alive:
+                    u.alive = False
+                    visited.add(u)
+                    queue.append(u)
 
     def add_node(self, ip, port, father_address):
         """

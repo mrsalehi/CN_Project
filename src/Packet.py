@@ -1,7 +1,7 @@
 """
 
     This is the format of packets in our network:
-    
+
 
 
                                                 **  NEW Packet Format  **
@@ -19,7 +19,7 @@
 
     Version:
         For now version is 1
-    
+
     Type:
         1: Register
         2: Advertise
@@ -50,10 +50,10 @@
 
 
     Packet descriptions:
-    
+
         Register:
             Request:
-        
+
                                  ** Body Format **
                  ________________________________________________
                 |                  REQ (3 Chars)                 |
@@ -62,29 +62,29 @@
                 |------------------------------------------------|
                 |                 Port (5 Chars)                 |
                 |________________________________________________|
-                
+
                 For sending IP/Port of the current node to the root to ask if it can register to network or not.
 
             Response:
-        
+
                                  ** Body Format **
                  _________________________________________________
                 |                  RES (3 Chars)                  |
                 |-------------------------------------------------|
                 |                  ACK (3 Chars)                  |
                 |_________________________________________________|
-                
+
                 For now only should just send an 'ACK' from the root to inform a node that it
                 has been registered in the root if the 'Register Request' was successful.
-                
+
         Advertise:
             Request:
-            
+
                                 ** Body Format **
                  ________________________________________________
                 |                  REQ (3 Chars)                 |
                 |________________________________________________|
-                
+
                 Nodes for finding the IP/Port of their neighbour peer must send this packet to the root.
 
             Response:
@@ -97,22 +97,22 @@
                 |------------------------------------------------|
                 |             Server Port (5 Chars)              |
                 |________________________________________________|
-                
+
                 Root will response Advertise Request packet with sending IP/Port of the requester peer in this packet.
-                
+
         Join:
 
                                 ** Body Format **
                  ________________________________________________
                 |                 JOIN (4 Chars)                 |
                 |________________________________________________|
-            
+
             New node after getting Advertise Response from root must send this packet to the specified peer
             to tell him that they should connect together; When receiving this packet we should update our
             Client Dictionary in the Stream object.
 
 
-            
+
         Message:
                                 ** Body Format **
                  ________________________________________________
@@ -120,10 +120,10 @@
                 |________________________________________________|
 
             The message that want to broadcast to hole network. Right now this type only includes a plain text.
-        
+
         Reunion:
             Hello:
-        
+
                                 ** Body Format **
                  ________________________________________________
                 |                  REQ (3 Chars)                 |
@@ -144,13 +144,13 @@
                 |------------------------------------------------|
                 |                PortN (5 Chars)                 |
                 |________________________________________________|
-                
+
                 In every interval (for now 20 seconds) peers must send this message to the root.
                 Every other peer that received this packet should append their (IP, port) to
                 the packet and update Length.
 
             Hello Back:
-        
+
                                     ** Body Format **
                  ________________________________________________
                 |                  REQ (3 Chars)                 |
@@ -174,8 +174,8 @@
 
                 Root in an answer to the Reunion Hello message will send this packet to the target node.
                 In this packet, all the nodes (IP, port) exist in order by path traversal to target.
-            
-    
+
+
 """
 from struct import *
 
@@ -188,6 +188,7 @@ class Packet:
         :param buf: Input buffer was just decoded.
         :type buf: bytearray
         """
+        self.bytes = buf  #
         pass
 
     def get_header(self):
@@ -196,7 +197,7 @@ class Packet:
         :return: Packet header
         :rtype: str
         """
-        pass
+        return self.bytes[:20]
 
     def get_version(self):
         """
@@ -204,7 +205,7 @@ class Packet:
         :return: Packet Version
         :rtype: int
         """
-        pass
+        return self.bytes[:2]
 
     def get_type(self):
         """
@@ -212,7 +213,7 @@ class Packet:
         :return: Packet type
         :rtype: int
         """
-        pass
+        return self.bytes[2: 4]
 
     def get_length(self):
         """
@@ -220,7 +221,7 @@ class Packet:
         :return: Packet length
         :rtype: int
         """
-        pass
+        return self.bytes[4: 8]
 
     def get_body(self):
         """
@@ -228,7 +229,7 @@ class Packet:
         :return: Packet body
         :rtype: str
         """
-        pass
+        return self.bytes[20:]
 
     def get_buf(self):
         """
@@ -245,7 +246,7 @@ class Packet:
         :return: Server IP address for the sender of the packet.
         :rtype: str
         """
-        pass
+        return self.bytes[8: 16]
 
     def get_source_server_port(self):
         """
@@ -253,7 +254,7 @@ class Packet:
         :return: Server Port address for the sender of the packet.
         :rtype: str
         """
-        pass
+        return self.bytes[16: 20]
 
     def get_source_server_address(self):
         """
@@ -261,7 +262,7 @@ class Packet:
         :return: Server address; The format is like ('192.168.001.001', '05335').
         :rtype: tuple
         """
-        pass
+        return self.get_source_server_ip(), self.get_source_server_port()
 
     def is_request(self):
         # TODO
@@ -274,18 +275,94 @@ class PacketFactory:
     """
 
     @staticmethod
-    def parse_buffer(buffer):
+    def new_header(type, length, source_ip, source_port, version=1):
+        bf = bytearray(20)
+        pack_into(">b", bf, 0, version)
+        pack_into(">b", bf, 2, type)
+        pack_into(">b", bf, 4, length)
+        pack_into(">b", bf, 8, source_ip)
+        pack_into(">b", bf, 16, source_port)
+        return bf
+
+    @staticmethod
+    def new_register_packet(type, source_server_address, address=(None, None)):
         """
-        In this function we will make a new Packet from input buffer with struct class methods.
+        :param type: Type of Register packet
+        :param source_server_address: Server address of the packet sender.
+        :param address: If 'type' is 'request' we need an address; The format is like ('192.168.001.001', '05335').
 
-        :param buffer: The buffer that should be parse to a validate packet format
+        :type type: str
+        :type source_server_address: tuple
+        :type address: tuple
 
-        :return new packet
+        :return New Register packet.
+        :rtype Packet
+
+        """
+        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 6), \
+                                         source_ip=source_server_address[0], source_port=source_server_address[1])
+        frame.extend(type.encode('utf8'))
+        if type == 'REQ':
+            frame.extend(address[0].encode('utf8'))
+            frame.extend(address[1].encode('utf8'))
+        elif type == 'RES':
+            frame.extend('ACK'.encode('utf8'))
+
+    @staticmethod
+    def new_advertise_packet(type, source_server_address, neighbour=(None, None)):
+        """
+        :param type: Type of Advertise packet
+        :param source_server_address Server address of the packet sender.
+        :param neighbour: The neighbour for advertise response packet; The format is like ('192.168.001.001', '05335').
+
+        :type type: str
+        :type source_server_address: tuple
+        :type neighbour: tuple
+
+        :return New advertise packet.
+        :rtype Packet
+
+        """
+        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4), \
+                                         source_ip=source_server_address[0], source_port=source_server_address[1])
+        frame.extend(type.encode('utf8'))
+        if type == 'RES':
+            frame.extend('ACK'.encode('utf8'))
+            frame.extend(neighbour[0].encode('utf8'))
+            frame.extend(neighbour[1].encode('utf8'))
+
+    @staticmethod
+    def new_join_packet(source_server_address):
+        """
+        :param source_server_address: Server address of the packet sender.
+
+        :type source_server_address: tuple
+
+        :return New join packet.
+        :rtype Packet
+
+        """
+        frame = PacketFactory.new_header(type=3, length=4,
+                                         source_ip=source_server_address[0], source_port=source_server_address[1])
+        frame.extend('JOIN'.encode('utf8'))
+
+    @staticmethod
+    def new_message_packet(message, source_server_address):
+        """
+        Packet for sending a broadcast message to the whole network.
+
+        :param message: Our message
+        :param source_server_address: Server address of the packet sender.
+
+        :type message: str
+        :type source_server_address: tuple
+
+        :return: New Message packet.
         :rtype: Packet
-
         """
-        # TODO: packet validation
-        pass
+        frame = PacketFactory.new_header(type=4, length=len(message),
+                                         source_ip=source_server_address[0], source_port=source_server_address[1])
+        frame.extend(message.encode('utf8'))
 
     @staticmethod
     def new_reunion_packet(type, source_address, nodes_array):
@@ -304,64 +381,17 @@ class PacketFactory:
         pass
 
     @staticmethod
-    def new_advertise_packet(type, source_server_address, neighbour=None):
+    def parse_buffer(buffer):
         """
-        :param type: Type of Advertise packet
-        :param source_server_address Server address of the packet sender.
-        :param neighbour: The neighbour for advertise response packet; The format is like ('192.168.001.001', '05335').
+        In this function we will make a new Packet from input buffer with struct class methods.
 
-        :type type: str
-        :type source_server_address: tuple
-        :type neighbour: tuple
+        :param buffer: The buffer that should be parse to a validate packet format
 
-        :return New advertise packet.
-        :rtype Packet
-
-        """
-        pass
-
-    @staticmethod
-    def new_join_packet(source_server_address):
-        """
-        :param source_server_address: Server address of the packet sender.
-
-        :type source_server_address: tuple
-
-        :return New join packet.
-        :rtype Packet
-
-        """
-        pass
-
-    @staticmethod
-    def new_register_packet(type, source_server_address, address=(None, None)):
-        """
-        :param type: Type of Register packet
-        :param source_server_address: Server address of the packet sender.
-        :param address: If 'type' is 'request' we need an address; The format is like ('192.168.001.001', '05335').
-
-        :type type: str
-        :type source_server_address: tuple
-        :type address: tuple
-
-        :return New Register packet.
-        :rtype Packet
-
-        """
-        pass
-
-    @staticmethod
-    def new_message_packet(message, source_server_address):
-        """
-        Packet for sending a broadcast message to the whole network.
-
-        :param message: Our message
-        :param source_server_address: Server address of the packet sender.
-
-        :type message: str
-        :type source_server_address: tuple
-
-        :return: New Message packet.
+        :return new packet
         :rtype: Packet
+
         """
+        # TODO: packet validation
+        # pack_into()
         pass
+
