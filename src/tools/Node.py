@@ -18,15 +18,14 @@ class Node:
         :param set_register:
         """
         self.server_ip = Node.parse_ip(server_address[0])
-        self.server_port = Node.parse_port(server_address[1])
-        self.client_socket = ClientSocket(mode=None, port=None, )  # TODO: fill-in the parameters
-        self.set_root = set_root
+        self.server_port = Node.parse_port(server_address[1])  # TODO: We may need a conversion from str to int
+        self.client_socket = ClientSocket(mode=self.server_ip, port=self.server_port)  # TODO: fill-in the parameters
+        self.is_root = set_root
         self.is_register = set_register
 
         print("Server Address: ", server_address)
 
         self.out_buff = []
-        pass
 
     def send_message(self):
         """
@@ -36,7 +35,6 @@ class Node:
         """
         self.client_socket.send(self.out_buff)
         self.out_buff.clear()
-
 
     def add_message_to_out_buff(self, message):
         """

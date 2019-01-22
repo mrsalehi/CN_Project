@@ -29,8 +29,9 @@ class Stream:
             queue.put(bytes('ACK', 'utf8'))
             self._server_in_buf.append(data)
 
-        self.tcp_server = TCPServer(mode=None, port=None, read_callback=callback)  # TODO: Change the Nones to correct values
-        self.t_tcP_server = threading.Thread(target=self.tcp_server.run(), args=())
+        self.tcp_server = TCPServer(mode=ip, port=port, read_callback=callback)
+        self.t_tcp_server = threading.Thread(target=self.tcp_server.run(), args=())
+        self.t_tcp_server.run()
         self.ip = Node.parse_ip(ip)
         self.port = Node.parse_port(port)
         self.nodes = {}
@@ -78,8 +79,9 @@ class Stream:
 
         :return:
         """
+        address = (node.server_ip, node.server_port)
+        del self.nodes[address]
         node.close()
-        del self.nodes[(node.server_ip, node.server_port )]  ## TODO: We may need to refactor it later!
 
     def get_node_by_server(self, ip, port):
         """
@@ -116,9 +118,8 @@ class Stream:
         if node is not None:
             buff = message.get_buff()  ## TODO: Not sure about this!
             node.add_message_to_out_buff(buff)
-
         else:
-            raise NotImplemented  ## TODO: Refactoring may be required...
+            raise RuntimeError
 
     def read_in_buf(self):
         """
@@ -142,6 +143,7 @@ class Stream:
 
         :return:
         """
+        # TODO: Do not forget to insert an exception handler here
         node.send_message()
 
     def send_out_buf_messages(self, only_register=False):
@@ -151,7 +153,4 @@ class Stream:
         :return:
         """
         for node in self.nodes:
-            if not only_register:
-                self.send_messages_to_node(node)
-            else:
-                pass  # TODO: Handle this exception
+            self.send_messages_to_node(node)

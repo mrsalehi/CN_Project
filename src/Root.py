@@ -1,3 +1,4 @@
+from .Peer import Peer
 from .Stream import Stream
 from .Packet import Packet, PacketFactory
 from .UserInterface import UserInterface
@@ -6,13 +7,8 @@ from .tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
-"""
-    Peer is our main object in this project.
-    In this network Peers will connect together to make a tree graph.
-    This network is not completely decentralised but will show you some real-world challenges in Peer to Peer networks.
-    
-"""
-class Peer:
+
+class Root(Peer):
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
         """
         The Peer object constructor.
@@ -40,10 +36,13 @@ class Peer:
         :type is_root: bool
         :type root_address: tuple
         """
-        self.server_address = (server_ip, server_port)
-        self.stream = Stream(server_ip, server_port)
-        self.packet_factory = PacketFactory()
-        self.user_interface = None
+        super(Root, self).__init__(server_ip=server_ip, server_port=server_port)
+        self.last_reunion_times = {}
+        self.graph = NetworkGraph(GraphNode(self.server_address))
+        self.t_run = threading.Thread(target=self.run, args=())  # TODO: Not sure about the args of thread
+        self.t_run.run()
+        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=()) # TODO: Not sure about the args of thread
+        self.t_run_reunion_daemon.run()
 
     def start_user_interface(self):
         """
@@ -51,7 +50,7 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
 
     def handle_user_interface_buffer(self):
         """
@@ -86,20 +85,21 @@ class Peer:
 
         :return:
         """
-        pass
+        while True:
+            in_buff = self.stream.read_in_buf()
+            packet = self.packet_factory.parse_buffer(in_buff)
+            self.handle_packet(packet)
+            self.stream.send_out_buf_messages()
+            time.sleep(2)
 
     def run_reunion_daemon(self):
         """
-
         In this function, we will handle all Reunion actions.
-
         Code design suggestions:
-            1. Check if we are the network root or not; The actions are identical.
             2. If it's the root Peer, in every interval check the latest Reunion packet arrival time from every node;
                If time is over for the node turn it off (Maybe you need to remove it from our NetworkGraph).
             3. If it's a non-root peer split the actions by considering whether we are waiting for Reunion Hello Back
                Packet or it's the time to send new Reunion Hello packet.
-
         Warnings:
             1. If we are the root of the network in the situation that we want to turn a node off, make sure that you will not
                advertise the nodes sub-tree in our GraphNode.
@@ -109,11 +109,18 @@ class Peer:
                pay attention that our NetworkGraph depth will not be bigger than 8. (Do not forget main loop sleep time)
             4. Suppose that you are a non-root Peer and Reunion was failed, In this time you should make a new Advertise
                Request packet and send it through your register_connection to the root; Don't forget to send this packet
-               here, because in the Reunion Failure mode our main loop will not work properly and everything will be got stock!
-
+               here, because in the Reunion Failure mode our main loop will not work properly and everything will be got stuck!
         :return:
         """
-        pass
+        valid_time = None
+        while True:  # TODO: Check timing
+            t = time.time()
+            for node_address, last_reunion_time in self.last_reunion_times.items():
+                if last_reunion_time > valid_time:
+                    self.graph.remove_node(node_address)
+                    node = self.stream.get_node_by_server(node_address)
+                    del self.last_reunion_times[node_address]
+                    self.stream.remove_node(node)
 
     def send_broadcast_packet(self, broadcast_packet):
         """
@@ -128,7 +135,9 @@ class Peer:
 
         :return:
         """
-        pass
+        msg = Packet
+        for node in self.stream.nodes:
+            self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet)
 
     def handle_packet(self, packet):
         """
@@ -143,6 +152,7 @@ class Peer:
         :type packet Packet
 
         """
+
         type = packet.get_type()
         if type is 'Register':
             self.__handle_register_packet(packet)
@@ -156,6 +166,20 @@ class Peer:
             self.__handle_reunion_packet(packet)
         else:
             raise NotImplemented
+
+    def __check_registered(self, source_address):
+        """
+        If the Peer is the root of the network we need to find that is a node registered or not.
+
+        :param source_address: Unknown IP/Port address.
+        :type source_address: tuple
+
+        :return:
+        """
+        for node in self.stream.nodes:
+            if source_address == node.get_server_address() and node.is_register:
+                return True
+        return False
 
     def __handle_advertise_packet(self, packet):
         """
@@ -186,7 +210,19 @@ class Peer:
 
         :return:
         """
-        pass
+        if packet.is_request():
+            source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
+            if self.__check_registered((source_ip, source_port)):
+                node = self.graph.find_node((source_ip, source_port))
+                if node is None or not node.alive:
+                    parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
+                    adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                    self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
+                    self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
+                    self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
+                    node.alive = True
+        else:
+            pass
 
     def __handle_register_packet(self, packet):
         """
@@ -203,26 +239,14 @@ class Peer:
         :type packet Packet
         :return:
         """
-        pass
-
-    def __check_neighbour(self, address):
-        """
-        It checks is the address in our neighbours array or not.
-
-        :param address: Unknown address
-
-        :type address: tuple
-
-        :return: Whether is address in our neighbours or not.
-        :rtype: bool
-        """
-        for node in self.stream.nodes:
-            if node.get_server_address() == address:
-                return True
-        return False
-
-    def __handle_join_packet(self, packet):
-        pass
+        if packet.is_request():
+            address = (packet.get_source_server_ip(), packet.get_source_server_port())
+            if not self.__check_registered(address):
+                self.stream.add_node(address, set_register_connection=True)
+                reg_res_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+                self.stream.add_message_to_out_buff(address, reg_res_pack)
+        else:
+            pass
 
     def __handle_message_packet(self, packet):
         """
@@ -238,7 +262,15 @@ class Peer:
 
         :return:
         """
-        pass
+        address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
+        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        if address in self.stream.nodes.keys():  # check if the sender is our neighbor
+            for node in self.stream.nodes:
+                node_address = node.get_server_address()
+                if node_address != address and not node.is_register:
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
+        else:
+            pass
 
     def __handle_reunion_packet(self, packet):
         """
@@ -263,4 +295,39 @@ class Peer:
         :param packet: Arrived reunion packet
         :return:
         """
-        pass
+        t = time.time()
+        body = packet.get_body()
+        type = body[:3]
+        n_entries = int(body[3:5])  # TODO: Make sure if it is the number of ip,port pairs in the msg.
+        entries = body[5:]
+        length = len(entries)
+        if type == 'REQ':
+            nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
+            last_node = nodes_array[-1]
+            sender = nodes_array[0]
+            self.graph.turn_on_node(sender)
+            nodes_array = reversed(nodes_array)
+            self.last_reunion_times[sender] = t
+            reunion_packet = self.packet_factory.new_reunion_packet('RES', self.server_address, nodes_array)
+            msg = None  # TODO: Convert the packet to byte message
+            self.stream.add_message_to_out_buff(last_node, message=msg)
+        else:
+            raise NotImplementedError
+
+    def __handle_join_packet(self, packet):
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
+        self.stream.add_node(address)
+
+    def __get_neighbour(self, sender):
+        """
+        Finds the best neighbour for the 'sender' from the network_nodes array.
+        This function only will call when you are a root peer.
+
+        Code design suggestion:
+            1. Use your NetworkGraph find_live_node to find the best neighbour.
+
+        :param sender: Sender of the packet
+        :return: The specified neighbour for the sender; The format is like ('192.168.001.001', '05335').
+        """
+        parent = self.graph.find_live_node(sender)
+        return parent.address

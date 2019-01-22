@@ -1,3 +1,4 @@
+from .Peer import Peer
 from .Stream import Stream
 from .Packet import Packet, PacketFactory
 from .UserInterface import UserInterface
@@ -6,13 +7,8 @@ from .tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
-"""
-    Peer is our main object in this project.
-    In this network Peers will connect together to make a tree graph.
-    This network is not completely decentralised but will show you some real-world challenges in Peer to Peer networks.
-    
-"""
-class Peer:
+
+class Client(Peer):
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
         """
         The Peer object constructor.
@@ -40,10 +36,33 @@ class Peer:
         :type is_root: bool
         :type root_address: tuple
         """
-        self.server_address = (server_ip, server_port)
-        self.stream = Stream(server_ip, server_port)
-        self.packet_factory = PacketFactory()
-        self.user_interface = None
+        super(Client, self).__init__(server_ip, server_port, is_root, root_address)
+        self.parent = None  # address of the parent node which will be a tuple
+        self._last_reunion_time = None  # last time a reunion hello packet was sent
+        self._reunion_mode = None  # either 'pending' or 'accepted'
+        self.root_address = root_address
+        self._register()
+        self.start_user_interface()
+        self.t_run = threading.Thread(target=self.run, args=())  # TODO: Not sure about the args of thread
+        self.t_run.run()
+        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
+        self.t_run_reunion_daemon.run()
+
+    def _register(self):
+        self.stream.add_node(self.root_address, set_register_connection=True)
+        reg_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters.
+        self.stream.add_message_to_out_buff(self.root_address, reg_pack)
+        self.stream.send_out_buf_messages()
+
+        # TODO: inaro pak kon
+        time.sleep(0.5)  # TODO: check this out!
+        in_buff = self.stream.read_in_buf()
+        reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
+        # advertise
+        adv_pack = self.packet_factory.new_advertise_packet()  # TODO
+        self.stream.add_message_to_out_buff(self.root_address, adv_pack)
+        self.stream.send_out_buf_messages()
+        self.mode = True  # TODO: Not sure about this!!
 
     def start_user_interface(self):
         """
@@ -51,7 +70,7 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
 
     def handle_user_interface_buffer(self):
         """
@@ -86,7 +105,12 @@ class Peer:
 
         :return:
         """
-        pass
+        while True:
+            time.sleep(2)
+            in_buff = self.stream.read_in_buf()
+            packet = self.packet_factory.parse_buffer(in_buff)
+            self.handle_packet(packet)
+            self.stream.send_out_buf_messages()
 
     def run_reunion_daemon(self):
         """
@@ -113,7 +137,21 @@ class Peer:
 
         :return:
         """
-        pass
+        valid_time = 0
+        while True:
+            time.sleep(4)
+            if self._reunion_mode == 'pending':
+                t = time.time()
+                if t - self.last_reunion_time > valid_time:
+                    adv_packet = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                    msg = None
+                    self.stream.add_message_to_out_buff(self.root_address, msg)
+                    self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address))
+            else:
+                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: Not sure about this
+                self.stream.add_message_to_out_buff(self.parent, reunion_packet)
+                self.last_reunion_time = time.time()
+                self._reunion_mode = 'pending'
 
     def send_broadcast_packet(self, broadcast_packet):
         """
@@ -128,34 +166,21 @@ class Peer:
 
         :return:
         """
-        pass
+        msg = Packet
+        for node in self.stream.nodes:
+            self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet)
 
     def handle_packet(self, packet):
         """
-
         This function act as a wrapper for other handle_###_packet methods to handle the packet.
 
         Code design suggestion:
             1. It's better to check packet validation right now; For example Validation of the packet length.
 
         :param packet: The arrived packet that should be handled.
-
         :type packet Packet
-
         """
-        type = packet.get_type()
-        if type is 'Register':
-            self.__handle_register_packet(packet)
-        elif type is 'Advertise':
-            self.__handle_advertise_packet(packet)
-        elif type is 'Join':
-            self.__handle_join_packet(packet)
-        elif type is 'Message':
-            self.__handle_message_packet(packet)
-        elif type is 'Reunion':
-            self.__handle_reunion_packet(packet)
-        else:
-            raise NotImplemented
+        super(Client, self).handle_packet()
 
     def __handle_advertise_packet(self, packet):
         """
@@ -186,7 +211,16 @@ class Peer:
 
         :return:
         """
-        pass
+        if not packet.is_request():
+            body = packet.get_body()
+            parent_ip = body[3: 18]
+            parent_port = body[-5:]
+            join_pack = self.packet_factory.new_join_packet()  # TODO: fill-in the parameters
+            address = (parent_ip, parent_port)
+            self.stream.add_node(address)
+            self.stream.add_message_to_out_buff(address, join_pack)
+        else:
+            pass  # TODO: Raise an Error
 
     def __handle_register_packet(self, packet):
         """
@@ -203,26 +237,21 @@ class Peer:
         :type packet Packet
         :return:
         """
-        pass
-
-    def __check_neighbour(self, address):
-        """
-        It checks is the address in our neighbours array or not.
-
-        :param address: Unknown address
-
-        :type address: tuple
-
-        :return: Whether is address in our neighbours or not.
-        :rtype: bool
-        """
-        for node in self.stream.nodes:
-            if node.get_server_address() == address:
-                return True
-        return False
-
-    def __handle_join_packet(self, packet):
-        pass
+        if not self.is_root:
+            if packet.is_request():
+                pass
+            else:
+                # TODO: check register response packet
+                adv_pack = self.packet_factory.new_advertise_packet()  # TODO
+                self.stream.add_message_to_out_buff(self.root_address, adv_pack)
+        else:
+            if not packet.is_request():
+                pass
+            else:
+                address = (packet.get_source_server_ip(), packet.get_source_server_port())
+                self.stream.add_node(address, set_register_connection=True)
+                register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+                self.stream.add_message_to_out_buff(address, register_response_packet)
 
     def __handle_message_packet(self, packet):
         """
@@ -238,7 +267,15 @@ class Peer:
 
         :return:
         """
-        pass
+        source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
+        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        if source_address in self.stream.nodes.keys():
+            for node in self.stream.nodes:
+                node_address = node.get_server_address()
+                if node_address != address:
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
+        else:
+            pass  # TODO: Raise an error if there is no node with given address
 
     def __handle_reunion_packet(self, packet):
         """
@@ -263,4 +300,46 @@ class Peer:
         :param packet: Arrived reunion packet
         :return:
         """
-        pass
+        body = packet.get_body()
+        type = body[:3]  # either 'RES' or 'REQ'
+        n_entries = body[3:5]  # TODO: Make sure if it is the number of ip,port pairs in the msg.
+        entries = body[5:]
+        length = len(entries)
+
+        if type == 'REQ':
+            nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
+            nodes_array.append(self.server_address)
+            reunion_packet = self.packet_factory. \
+                new_reunion_packet('REQ', self.server_address, nodes_array)
+            msg = None  # TODO: Convert the packet to byte message
+            self.stream.add_message_to_out_buff(self.parent, message=msg)
+        elif type == 'RES':
+            if length == 20:  # we are the end node!
+                self._reunion_mode = 'acceptance'
+            else:  # we are not the end node! forward the packet!
+                entries = entries[20:]
+                nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
+                next_node_addr = nodes_array[0]
+                reunion_packet = self.packet_factory. \
+                    new_reunion_packet('RES', self.server_address, nodes_array)
+                msg = None  # TODO: Convert the packet to byte message
+                self.stream.add_message_to_out_buff(next_node_addr, message=msg)
+        else:
+            raise NotImplementedError
+
+    def __handle_join_packet(self, packet):
+        """
+        When a Join packet received we should add a new node to our nodes array.
+        In reality, there is a security level that forbids joining every node to our network.
+
+        :param packet: Arrived register packet.
+
+
+        :type packet Packet
+
+        :return:
+        """
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
+        self.stream.add_node(address)  # TODO: DO we need to open tcp connection here?
+
+
