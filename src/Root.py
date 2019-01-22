@@ -112,11 +112,11 @@ class Root(Peer):
                here, because in the Reunion Failure mode our main loop will not work properly and everything will be got stuck!
         :return:
         """
-        valid_time = None
-        while True:  # TODO: Check timing
+        valid_time = 0  # TODO: Finding the proper value of valid_time
+        while True:
             t = time.time()
             for node_address, last_reunion_time in self.last_reunion_times.items():
-                if last_reunion_time > valid_time:
+                if t - last_reunion_time > valid_time:
                     self.graph.remove_node(node_address)
                     node = self.stream.get_node_by_server(node_address)
                     del self.last_reunion_times[node_address]
@@ -152,7 +152,6 @@ class Root(Peer):
         :type packet Packet
 
         """
-
         type = packet.get_type()
         if type is 'Register':
             self.__handle_register_packet(packet)

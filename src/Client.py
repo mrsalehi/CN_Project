@@ -140,6 +140,7 @@ class Client(Peer):
         valid_time = 0
         while True:
             time.sleep(4)
+            t = time.time()
             if self._reunion_mode == 'pending':
                 t = time.time()
                 if t - self.last_reunion_time > valid_time:
@@ -148,9 +149,9 @@ class Client(Peer):
                     self.stream.add_message_to_out_buff(self.root_address, msg)
                     self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address))
             else:
-                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: Not sure about this
+                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: fill-in the parameters
                 self.stream.add_message_to_out_buff(self.parent, reunion_packet)
-                self.last_reunion_time = time.time()
+                self.last_reunion_time = t
                 self._reunion_mode = 'pending'
 
     def send_broadcast_packet(self, broadcast_packet):
@@ -180,7 +181,19 @@ class Client(Peer):
         :param packet: The arrived packet that should be handled.
         :type packet Packet
         """
-        super(Client, self).handle_packet()
+        type = packet.get_type()
+        if type is 'Register':
+            self.__handle_register_packet(packet)
+        elif type is 'Advertise':
+            self.__handle_advertise_packet(packet)
+        elif type is 'Join':
+            self.__handle_join_packet(packet)
+        elif type is 'Message':
+            self.__handle_message_packet(packet)
+        elif type is 'Reunion':
+            self.__handle_reunion_packet(packet)
+        else:
+            raise NotImplemented
 
     def __handle_advertise_packet(self, packet):
         """

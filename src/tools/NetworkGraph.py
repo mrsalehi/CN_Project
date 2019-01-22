@@ -94,6 +94,7 @@ class NetworkGraph:
                     u.alive = False
                     visited.add(u)
                     queue.append(u)
+        self.nodes.remove(node)
 
     def add_node(self, ip, port, father_address):
         """
