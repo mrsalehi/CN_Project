@@ -35,7 +35,7 @@ class NetworkGraph:
         root.alive = True
         self.nodes = [root]
 
-    def find_live_node(self, sender):      # TODO: use sender :))
+    def find_live_node(self, sender):
         """
         Here we should find a neighbour for the sender.
         Best neighbour is the node who is nearest the root and has not more than one child.
@@ -53,44 +53,38 @@ class NetworkGraph:
         :return: Best neighbour for sender.
         :rtype: GraphNode
         """
-        if self.find_node(sender) is not None:
-            return None    # TODO: exception
         visited, queue = set(), collections.deque([self.root])
         visited.add(self.root)
         while queue:
             v = queue.popleft()
-            for u in v.children:
-                if u not in visited and u.live:
-                    if len(u.children) < 2:
-                        return u
-                    visited.add(u)
-                    queue.append(u)
-        pass
+            if v.address != sender:
+                for u in v.children:
+                    if u not in visited and u.alive:
+                        if len(u.children) < 2:
+                            return u
+                        visited.add(u)
+                        queue.append(u)
 
-    def find_node(self, ip, port):
-        address = (ip, port)
-        visited, queue = set(), collections.deque([self.root])
-        visited.add(self.root)
-        while queue:
-            v = queue.popleft()
-            for u in v.children:
-                if u not in visited and u.live:
-                    if u.address == address:
-                        return u
-                    visited.add(u)
-                    queue.append(u)
         return None
 
+    def find_node(self, ip, port):
+        for node in self.nodes:
+            if node.address == (ip, port):
+                return node
+
     def turn_on_node(self, node_address):
-        node = self.find_node(node_address)
+        ip, port = node_address
+        node = self.find_node(ip, port)
         node.alive = True
 
     def turn_off_node(self, node_address):
-        node = self.find_node(node_address)
+        ip, port = node_address
+        node = self.find_node(ip, port)
         node.alive = False
 
     def remove_node(self, node_address):
-        node = self.find_node(node_address)
+        ip, port = node_address
+        node = self.find_node(ip, port)
         visited, queue = set(), collections.deque([node])
         visited.add(node)
         while queue:
@@ -121,6 +115,8 @@ class NetworkGraph:
         :return:
         """
         node = GraphNode((ip, port))
-        parent = self.find_node(father_address)
+        ip, port = father_address
+        parent = self.find_node(ip, port)
         node.set_parent(parent)
         parent.add_child(node)
+        self.nodes.append(node)
