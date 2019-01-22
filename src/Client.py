@@ -39,7 +39,7 @@ class Client(Peer):
         super(Client, self).__init__(server_ip, server_port, is_root, root_address)
         self.parent = None  # address of the parent node which will be a tuple
         self._last_reunion_time = None  # last time a reunion hello packet was sent
-        self._reunion_mode = None  # either 'pending' or 'accepted'
+        self._reunion_mode = None  # either 'pending' or 'acceptance'
         self.root_address = root_address
         self._register()
         self.start_user_interface()
@@ -47,6 +47,7 @@ class Client(Peer):
         self.t_run.run()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.t_run_reunion_daemon.run()
+        self.valid_time = 20  # TODO: Finding the proper value of valid_time
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
@@ -107,10 +108,17 @@ class Client(Peer):
         """
         while True:
             time.sleep(2)
+            t = time.time()
             in_buff = self.stream.read_in_buf()
             packet = self.packet_factory.parse_buffer(in_buff)
-            self.handle_packet(packet)
-            self.stream.send_out_buf_messages()
+            type = packet.get_type()  # Note the second warning in comments
+            if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
+                (type is 'Advertise'):
+                self.handle_packet(packet)
+                self.stream.send_out_buf_messages()
+                self.stream.clear_in_buff()  # TODO: We may not clear all of the input buffer, but only the first part which corresponds to a packet
+            else:
+                pass
 
     def run_reunion_daemon(self):
         """
@@ -233,6 +241,7 @@ class Client(Peer):
             self.parent = address
             self.stream.add_node(address)
             self.stream.add_message_to_out_buff(address, join_pack)
+            self._reunion_mode = 'acceptance'
         else:
             pass
 

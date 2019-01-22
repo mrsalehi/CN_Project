@@ -135,9 +135,9 @@ class Root(Peer):
 
         :return:
         """
-        msg = Packet
+        msg = None  # TODO: Convert broadcast_packet to bytes...
         for node in self.stream.nodes:
-            self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet)
+            self.stream.add_message_to_out_buff(node.get_server_address(), message=msg)
 
     def handle_packet(self, packet):
         """
@@ -191,16 +191,11 @@ class Root(Peer):
             When an Advertise Response packet type arrived we should update our parent peer and send a Join packet to the
             new parent.
 
-        Code design suggestion:
-            1. Start the Reunion daemon thread when the first Advertise Response packet received.
-            2. When an Advertise Response message arrived, make a new Join packet immediately for the advertised address.
-
         Warnings:
             2. The addresses which still haven't registered to the network can not request any peer discovery message.
             3. Maybe it's not the first time that the source of the packet sends Advertise Request message. This will happen
                in rare situations like Reunion Failure. Pay attention, don't advertise the address to the packet sender
                sub-tree.
-            4. When an Advertise Response packet arrived update our Peer parent for sending Reunion Packets.
 
         :param packet: Arrived register packet
 
@@ -209,6 +204,7 @@ class Root(Peer):
         :return:
         """
         if packet.is_request():
+            t = time.time()
             source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
@@ -219,6 +215,7 @@ class Root(Peer):
                     self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
                 else:
                     node.alive = True
+                self.last_reunion_times[(source_ip, source_port)] = t
         else:
             pass
 
