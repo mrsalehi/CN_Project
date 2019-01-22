@@ -212,7 +212,7 @@ class Root(Peer):
             source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
-                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address, neighbour=(parent_ip, parent_port))
                 self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
                 node = self.graph.find_node(source_ip, source_port)
                 if node is None:
@@ -241,7 +241,7 @@ class Root(Peer):
             address = (packet.get_source_server_ip(), packet.get_source_server_port())
             if not self.__check_registered(address):
                 self.stream.add_node(address, set_register_connection=True)
-                reg_res_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+                reg_res_pack = self.packet_factory.new_register_packet('RES', self.server_address)
                 self.stream.add_message_to_out_buff(address, reg_res_pack)
         else:
             pass
@@ -261,7 +261,7 @@ class Root(Peer):
         :return:
         """
         address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
-        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
         if address in self.stream.nodes.keys():  # check if the sender is our neighbor
             for node in self.stream.nodes:
                 node_address = node.get_server_address()

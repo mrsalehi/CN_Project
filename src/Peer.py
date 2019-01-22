@@ -12,6 +12,8 @@ import threading
     This network is not completely decentralised but will show you some real-world challenges in Peer to Peer networks.
     
 """
+
+
 class Peer:
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
         """

@@ -50,7 +50,7 @@ class Client(Peer):
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
-        reg_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters.
+        reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack)
         self.stream.send_out_buf_messages()
 
@@ -59,7 +59,7 @@ class Client(Peer):
         in_buff = self.stream.read_in_buf()
         reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
         # advertise
-        adv_pack = self.packet_factory.new_advertise_packet()  # TODO
+        adv_pack = self.packet_factory.new_advertise_packet('RES', self.server_address)
         self.stream.add_message_to_out_buff(self.root_address, adv_pack)
         self.stream.send_out_buf_messages()
         self.mode = True  # TODO: Not sure about this!!
@@ -228,32 +228,13 @@ class Client(Peer):
             body = packet.get_body()
             parent_ip = body[3: 18]
             parent_port = int(body[-5:])
-            join_pack = self.packet_factory.new_join_packet()  # TODO: fill-in the parameters
+            join_pack = self.packet_factory.new_join_packet(self.server_address)
             address = (parent_ip, parent_port)
             self.parent = address
             self.stream.add_node(address)
             self.stream.add_message_to_out_buff(address, join_pack)
         else:
             pass
-
-    def __handle_register_packet(self, packet):
-        """
-        For registration a new node to the network at first we should make a Node with stream.add_node for'sender' and
-        save it.
-
-        Code design suggestion:
-            1.For checking whether an address is registered since now or not you can use SemiNode object except Node.
-
-        Warnings:
-            1. Don't forget to ignore Register Request packets when you are a non-root peer.
-
-        :param packet: Arrived register packet
-        :type packet Packet
-        :return:
-        """
-        if not packet.is_request():
-            adv_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
-            self.stream.add_message_to_out_buff(self.root_address, adv_pack)
 
     def __handle_message_packet(self, packet):
         """
@@ -270,7 +251,7 @@ class Client(Peer):
         :return:
         """
         source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
-        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
         if source_address in self.stream.nodes.keys():
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
