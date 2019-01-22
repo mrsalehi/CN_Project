@@ -211,13 +211,14 @@ class Root(Peer):
         if packet.is_request():
             source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
             if self.__check_registered((source_ip, source_port)):
-                node = self.graph.find_node(source_ip, source_port)
                 parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
                 adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
-                self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
                 self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
-                self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
-                node.alive = True
+                node = self.graph.find_node(source_ip, source_port)
+                if node is None:
+                    self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
+                else:
+                    node.alive = True
         else:
             pass
 
