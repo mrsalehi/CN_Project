@@ -214,13 +214,14 @@ class Client(Peer):
         if not packet.is_request():
             body = packet.get_body()
             parent_ip = body[3: 18]
-            parent_port = body[-5:]
+            parent_port = int(body[-5:])
             join_pack = self.packet_factory.new_join_packet()  # TODO: fill-in the parameters
             address = (parent_ip, parent_port)
+            self.parent = address
             self.stream.add_node(address)
             self.stream.add_message_to_out_buff(address, join_pack)
         else:
-            pass  # TODO: Raise an Error
+            pass
 
     def __handle_register_packet(self, packet):
         """
@@ -237,21 +238,9 @@ class Client(Peer):
         :type packet Packet
         :return:
         """
-        if not self.is_root:
-            if packet.is_request():
-                pass
-            else:
-                # TODO: check register response packet
-                adv_pack = self.packet_factory.new_advertise_packet()  # TODO
-                self.stream.add_message_to_out_buff(self.root_address, adv_pack)
-        else:
-            if not packet.is_request():
-                pass
-            else:
-                address = (packet.get_source_server_ip(), packet.get_source_server_port())
-                self.stream.add_node(address, set_register_connection=True)
-                register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
-                self.stream.add_message_to_out_buff(address, register_response_packet)
+        if not packet.is_request():
+            adv_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+            self.stream.add_message_to_out_buff(self.root_address, adv_pack)
 
     def __handle_message_packet(self, packet):
         """
@@ -272,10 +261,10 @@ class Client(Peer):
         if source_address in self.stream.nodes.keys():
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
-                if node_address != address:
+                if node_address != source_address:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
         else:
-            pass  # TODO: Raise an error if there is no node with given address
+            pass
 
     def __handle_reunion_packet(self, packet):
         """
@@ -340,6 +329,6 @@ class Client(Peer):
         :return:
         """
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
-        self.stream.add_node(address)  # TODO: DO we need to open tcp connection here?
+        self.stream.add_node(address)
 
 

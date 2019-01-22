@@ -197,7 +197,6 @@ class Root(Peer):
             2. When an Advertise Response message arrived, make a new Join packet immediately for the advertised address.
 
         Warnings:
-            1. Don't forget to ignore Advertise Request packets when you are a non-root peer.
             2. The addresses which still haven't registered to the network can not request any peer discovery message.
             3. Maybe it's not the first time that the source of the packet sends Advertise Request message. This will happen
                in rare situations like Reunion Failure. Pay attention, don't advertise the address to the packet sender
@@ -213,14 +212,13 @@ class Root(Peer):
         if packet.is_request():
             source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
             if self.__check_registered((source_ip, source_port)):
-                node = self.graph.find_node((source_ip, source_port))
-                if node is None or not node.alive:
-                    parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
-                    adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
-                    self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
-                    self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
-                    self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
-                    node.alive = True
+                node = self.graph.find_node(source_ip, source_port)
+                parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
+                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
+                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
+                self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
+                node.alive = True
         else:
             pass
 
