@@ -67,19 +67,18 @@ class Peer:
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
-        reg_pack = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters.
+        reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack)
         self.stream.send_out_buf_messages()
 
-        # TODO: inaro pak kon
-        time.sleep(0.5)  # TODO: check this out!
-        in_buff = self.stream.read_in_buf()
-        reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
-        # advertise
-        adv_pack = self.packet_factory.new_advertise_packet() # TODO
-        self.stream.add_message_to_out_buff(self.root_address, adv_pack)
-        self.stream.send_out_buf_messages()
-        self.mode = True  # TODO: Not sure about this!!
+        # time.sleep(0.5)  # TODO: check this out!
+        # in_buff = self.stream.read_in_buf()
+        # reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
+        # # advertise
+        # adv_pack = self.packet_factory.new_advertise_packet() # TODO
+        # self.stream.add_message_to_out_buff(self.root_address, adv_pack)
+        # self.stream.send_out_buf_messages()
+        # self.mode = True  # TODO: Not sure about this!!
 
     def start_user_interface(self):
         """
@@ -260,7 +259,7 @@ class Peer:
                 source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
                 address = (source_ip, source_port)
                 parent_ip, parent_port = self.__get_neighbour(sender=address)
-                adv_res_pack = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                adv_res_pack = self.packet_factory.new_advertise_packet('RES', address, neighbour=(parent_ip, parent_port))
                 self.stream.add_message_to_out_buff(address, adv_res_pack)
                 self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
             else:
@@ -270,7 +269,7 @@ class Peer:
                 body = packet.get_body()
                 parent_ip = body[3: 18]
                 parent_port = body[-5:]
-                join_pack = self.packet_factory.new_join_packet()  # TODO: fill-in the parameters
+                join_pack = self.packet_factory.new_join_packet(self.server_address)
                 address = (parent_ip, parent_port)
                 self.stream.add_node(address)
                 self.stream.add_message_to_out_buff(address, join_pack)
@@ -298,7 +297,7 @@ class Peer:
                 pass
             else:
                 # TODO: check register response packet
-                adv_pack = self.packet_factory.new_advertise_packet()  # TODO
+                adv_pack = self.packet_factory.new_advertise_packet('REQ', self.server_address)
                 self.stream.add_message_to_out_buff(self.root_address, adv_pack)
         else:
             if not packet.is_request():
@@ -306,7 +305,7 @@ class Peer:
             else:
                 address = (packet.get_source_server_ip(), packet.get_source_server_port())
                 self.stream.add_node(address, set_register_connection=True)
-                register_response_packet = self.packet_factory.new_register_packet()  # TODO: fill-in the parameters
+                register_response_packet = self.packet_factory.new_register_packet('RES', address)
                 self.stream.add_message_to_out_buff(address, register_response_packet)
 
     def __check_neighbour(self, address):
@@ -340,7 +339,7 @@ class Peer:
         :return:
         """
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
-        brdcast_packet = self.packet_factory.new_message_packet()  # TODO: fill-in the parameters
+        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), address)
         if address in self.stream.nodes.keys():
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
