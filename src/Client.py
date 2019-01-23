@@ -34,6 +34,7 @@ class Client(Peer):
         :type is_root: bool
         :type root_address: tuple
         """
+        server_ip = '.'.join(str(int(part)).zfill(3) for part in server_ip.split('.'))
         super(Client, self).__init__(server_ip, server_port, is_root, root_address)
         self.parent = None  # address of the parent node which will be a tuple
         self._last_reunion_time = None  # last time a reunion hello packet was sent
