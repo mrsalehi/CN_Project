@@ -22,9 +22,6 @@ class Root(Peer):
         Warnings:
             1. For root Peer, we need a NetworkGraph object.
             2. In root Peer, start reunion daemon as soon as possible.
-            3. In client Peer, we need to connect to the root of the network, Don't forget to set this connection
-               as a register_connection.
-
 
         :param server_ip: Server IP address for this Peer that should be pass to Stream.
         :param server_port: Server Port address for this Peer that should be pass to Stream.
@@ -50,7 +47,7 @@ class Root(Peer):
 
         :return:
         """
-        self.user_interface = UserInterface()
+        pass
 
     def handle_user_interface_buffer(self):
         """

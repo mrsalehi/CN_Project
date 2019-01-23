@@ -20,8 +20,6 @@ class Client(Peer):
             4. Initialise a Thread for handling reunion daemon.
 
         Warnings:
-            1. For root Peer, we need a NetworkGraph object.
-            2. In root Peer, start reunion daemon as soon as possible.
             3. In client Peer, we need to connect to the root of the network, Don't forget to set this connection
                as a register_connection.
 
@@ -39,31 +37,24 @@ class Client(Peer):
         super(Client, self).__init__(server_ip, server_port, is_root, root_address)
         self.parent = None  # address of the parent node which will be a tuple
         self._last_reunion_time = None  # last time a reunion hello packet was sent
-        self._reunion_mode = None  # either 'pending' or 'acceptance'
+        self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
         self.root_address = root_address
         self._register()
         self.start_user_interface()
-        self.t_run = threading.Thread(target=self.run, args=())  # TODO: Not sure about the args of thread
+        self.valid_time = 20
+        self.adv_sent = False
+        self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.run()
-        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
-        self.t_run_reunion_daemon.run()
-        self.valid_time = 20  # TODO: Finding the proper value of valid_time
+        self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
         reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack)
-        self.stream.send_out_buf_messages()
 
-        # TODO: inaro pak kon
-        time.sleep(0.5)  # TODO: check this out!
-        in_buff = self.stream.read_in_buf()
-        reg_response_pack = self.packet_factory.parse_buffer(in_buff)  # TODO: check if the response is valid
-        # advertise
+    def _advertise(self):
         adv_pack = self.packet_factory.new_advertise_packet('RES', self.server_address)
         self.stream.add_message_to_out_buff(self.root_address, adv_pack)
-        self.stream.send_out_buf_messages()
-        self.mode = True  # TODO: Not sure about this!!
 
     def start_user_interface(self):
         """
@@ -72,6 +63,8 @@ class Client(Peer):
         :return:
         """
         self.user_interface = UserInterface()
+        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
+        t_run_ui.run()
 
     def handle_user_interface_buffer(self):
         """
@@ -86,7 +79,19 @@ class Client(Peer):
             2. Don't forget to clear our UserInterface buffer.
         :return:
         """
-        pass
+        buff = self.user_interface.buffer
+        for msg in buff:
+            if msg == 'Register':
+                self._register()
+            elif type == 'Advertise':
+                self._advertise()
+            elif type == 'SendMessage':
+                brd_cast_packet = self.packet_factory.parse_buffer(msg)
+                self.send_broadcast_packet(brd_cast_packet)
+            else:
+                pass
+
+        self.user_interface.buffer.clear()
 
     def run(self):
         """
@@ -109,16 +114,17 @@ class Client(Peer):
         while True:
             time.sleep(2)
             t = time.time()
+            self.handle_user_interface_buffer()
             in_buff = self.stream.read_in_buf()
-            packet = self.packet_factory.parse_buffer(in_buff)
-            type = packet.get_type()  # Note the second warning in comments
-            if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
-                (type is 'Advertise'):
-                self.handle_packet(packet)
-                self.stream.send_out_buf_messages()
-                self.stream.clear_in_buff()  # TODO: We may not clear all of the input buffer, but only the first part which corresponds to a packet
-            else:
-                pass
+            packets = self.packet_factory.parse_buffer(in_buff)
+            for packet in packets:
+                type = packet.get_type()  # Note the second warning in comments
+                if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
+                    (type == 'Advertise') or (self.valid_time == 'acceptance'):
+                    self.handle_packet(packet)
+
+            self.stream.send_out_buf_messages()
+            self.stream.clear_in_buff()
 
     def run_reunion_daemon(self):
         """
@@ -126,15 +132,10 @@ class Client(Peer):
         In this function, we will handle all Reunion actions.
 
         Code design suggestions:
-            1. Check if we are the network root or not; The actions are identical.
-            2. If it's the root Peer, in every interval check the latest Reunion packet arrival time from every node;
-               If time is over for the node turn it off (Maybe you need to remove it from our NetworkGraph).
             3. If it's a non-root peer split the actions by considering whether we are waiting for Reunion Hello Back
                Packet or it's the time to send new Reunion Hello packet.
 
         Warnings:
-            1. If we are the root of the network in the situation that we want to turn a node off, make sure that you will not
-               advertise the nodes sub-tree in our GraphNode.
             2. If we are a non-root Peer, save the time when you have sent your last Reunion Hello packet; You need this
                time for checking whether the Reunion was failed or not.
             3. For choosing time intervals you should wait until Reunion Hello or Reunion Hello Back arrival,
@@ -145,13 +146,12 @@ class Client(Peer):
 
         :return:
         """
-        valid_time = 0
         while True:
             time.sleep(4)
             t = time.time()
             if self._reunion_mode == 'pending':
                 t = time.time()
-                if t - self.last_reunion_time > valid_time:
+                if t - self.last_reunion_time > self.valid_time:
                     adv_packet = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
                     msg = None
                     self.stream.add_message_to_out_buff(self.root_address, msg)
@@ -242,6 +242,9 @@ class Client(Peer):
             self.stream.add_node(address)
             self.stream.add_message_to_out_buff(address, join_pack)
             self._reunion_mode = 'acceptance'
+            if not self.adv_sent:
+                self.adv_sent = True
+                self.t_reunion_daemon.run()
         else:
             pass
 
