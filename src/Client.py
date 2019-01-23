@@ -50,11 +50,11 @@ class Client(Peer):
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
         reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
-        self.stream.add_message_to_out_buff(self.root_address, reg_pack)
+        self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf())
 
     def _advertise(self):
         adv_pack = self.packet_factory.new_advertise_packet('REQ', self.server_address)
-        self.stream.add_message_to_out_buff(self.root_address, adv_pack)
+        self.stream.add_message_to_out_buff(self.root_address, adv_pack.get_buf())
 
     def start_user_interface(self):
         """
@@ -119,7 +119,7 @@ class Client(Peer):
             for packet in packets:
                 type = packet.get_type()  # Note the second warning in comments
                 if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
-                    (type == 'Advertise') or (self.valid_time == 'acceptance'):
+                    (type == 2) or (self.valid_time == 'acceptance'):
                     self.handle_packet(packet)
 
             self.stream.send_out_buf_messages()
@@ -151,12 +151,13 @@ class Client(Peer):
             if self._reunion_mode == 'pending':
                 t = time.time()
                 if t - self.last_reunion_time > self.valid_time:
-                    adv_packet = self.packet_factory.new_advertise_packet()  # TODO: fill-in the parameters
+                    adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
                     msg = None
                     self.stream.add_message_to_out_buff(self.root_address, msg)
                     self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address))
             else:
-                reunion_packet = self.packet_factory.new_reunion_packet()  # TODO: fill-in the parameters
+                reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
+                                                                        nodes_array=[self.server_address])
                 self.stream.add_message_to_out_buff(self.parent, reunion_packet)
                 self.last_reunion_time = t
                 self._reunion_mode = 'pending'
@@ -174,9 +175,9 @@ class Client(Peer):
 
         :return:
         """
-        msg = Packet
+        msg = broadcast_packet.get_buf()
         for node in self.stream.nodes:
-            self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet)
+            self.stream.add_message_to_out_buff(node.get_server_address(), message=msg)
 
     def handle_packet(self, packet):
         """
@@ -239,7 +240,7 @@ class Client(Peer):
             address = (parent_ip, parent_port)
             self.parent = address
             self.stream.add_node(address)
-            self.stream.add_message_to_out_buff(address, join_pack)
+            self.stream.add_message_to_out_buff(address, join_pack.get_buf())
             self._reunion_mode = 'acceptance'
             if not self.adv_sent:
                 self.adv_sent = True
@@ -267,7 +268,7 @@ class Client(Peer):
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
                 if node_address != source_address:
-                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
         else:
             pass
 
@@ -296,7 +297,7 @@ class Client(Peer):
         """
         body = packet.get_body()
         type = body[:3]  # either 'RES' or 'REQ'
-        n_entries = body[3:5]  # TODO: Make sure if it is the number of ip,port pairs in the msg.
+        n_entries = body[3:5]
         entries = body[5:]
         length = len(entries)
 
@@ -305,8 +306,7 @@ class Client(Peer):
             nodes_array.append(self.server_address)
             reunion_packet = self.packet_factory. \
                 new_reunion_packet('REQ', self.server_address, nodes_array)
-            msg = None  # TODO: Convert the packet to byte message
-            self.stream.add_message_to_out_buff(self.parent, message=msg)
+            self.stream.add_message_to_out_buff(self.parent, message=reunion_packet.get_buf())
         elif type == 'RES':
             if length == 20:  # we are the end node!
                 self._reunion_mode = 'acceptance'
@@ -316,8 +316,7 @@ class Client(Peer):
                 next_node_addr = nodes_array[0]
                 reunion_packet = self.packet_factory. \
                     new_reunion_packet('RES', self.server_address, nodes_array)
-                msg = None  # TODO: Convert the packet to byte message
-                self.stream.add_message_to_out_buff(next_node_addr, message=msg)
+                self.stream.add_message_to_out_buff(next_node_addr, message=reunion_packet.get_buf())
         else:
             raise NotImplementedError
 

@@ -1,6 +1,6 @@
 from .Peer import Peer
 from .Stream import Stream
-from .Packet import Packet, PacketFactory
+from .Packet import Packet
 from .UserInterface import UserInterface
 from .tools.SemiNode import SemiNode
 from .tools.NetworkGraph import NetworkGraph, GraphNode
@@ -36,9 +36,9 @@ class Root(Peer):
         super(Root, self).__init__(server_ip=server_ip, server_port=server_port)
         self.last_reunion_times = {}
         self.graph = NetworkGraph(GraphNode(self.server_address))
-        self.t_run = threading.Thread(target=self.run, args=())  # TODO: Not sure about the args of thread
+        self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.run()
-        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=()) # TODO: Not sure about the args of thread
+        self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.t_run_reunion_daemon.run()
 
     def start_user_interface(self):
@@ -47,7 +47,7 @@ class Root(Peer):
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
 
     def handle_user_interface_buffer(self):
         """
@@ -84,8 +84,10 @@ class Root(Peer):
         """
         while True:
             in_buff = self.stream.read_in_buf()
-            packet = self.packet_factory.parse_buffer(in_buff)
-            self.handle_packet(packet)
+            packets = self.packet_factory.parse_buffer(in_buff)
+            for packet in packets:
+                self.handle_packet(packet)
+
             self.stream.send_out_buf_messages()
             time.sleep(2)
 
@@ -205,7 +207,8 @@ class Root(Peer):
             source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
-                adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address, neighbour=(parent_ip, parent_port))
+                adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address,
+                                                                        neighbour=(parent_ip, parent_port))
                 self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
                 node = self.graph.find_node(source_ip, source_port)
                 if node is None:
@@ -290,7 +293,7 @@ class Root(Peer):
         t = time.time()
         body = packet.get_body()
         type = body[:3]
-        n_entries = int(body[3:5])  # TODO: Make sure if it is the number of ip,port pairs in the msg.
+        n_entries = int(body[3:5])
         entries = body[5:]
         length = len(entries)
         if type == 'REQ':
@@ -301,8 +304,7 @@ class Root(Peer):
             nodes_array = reversed(nodes_array)
             self.last_reunion_times[sender] = t
             reunion_packet = self.packet_factory.new_reunion_packet('RES', self.server_address, nodes_array)
-            msg = None  # TODO: Convert the packet to byte message
-            self.stream.add_message_to_out_buff(last_node, message=msg)
+            self.stream.add_message_to_out_buff(last_node, message=reunion_packet.get_buf())
         else:
             raise NotImplementedError
 

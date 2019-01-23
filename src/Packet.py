@@ -41,7 +41,7 @@
     type = 4                    b'\x00\x04'
     length = 12                 b'\x00\x00\x00\x0c'
     ip = '192.168.001.001'      b'\x00\xc0\x00\xa8\x00\x01\x00\x01'
-    port = '65000'              b'\x00\x00\\xfd\xe8'
+    port = '65000'              b'\x00\x00\xfd\xe8'
     Body = 'Hello World!'       b'Hello World!'
 
     Bytes = b'\x00\x01\x00\x04\x00\x00\x00\x0c\x00\xc0\x00\xa8\x00\x01\x00\x01\x00\x00\xfd\xe8Hello World!'
@@ -181,23 +181,24 @@ from struct import *
 
 
 class Packet:
-    def __init__(self, buf):
-        """
-        The decoded buffer should convert to a new packet.
+    def __init__(self, version, type, length, source_ip, source_port, body):
+        '''
 
-        :param buf: Input buffer was just decoded.
-        :type buf: bytearray
-        """
-        self.bytes = buf  #
-        pass
-
-    def get_header(self):
-        """
-
-        :return: Packet header
-        :rtype: str
-        """
-        return self.bytes[:20]
+        :param header: bytes
+        :param version: '1'
+        :param type: an integer from 1 to 5
+        :param length: length of the body
+        :param source_ip:
+        :param source_port:
+        :param body:
+        '''
+        self.version = version
+        self.type = type
+        self.length = length
+        self.type = type
+        self.source_ip = source_ip
+        self.source_port = source_port
+        self.body = body
 
     def get_version(self):
         """
@@ -205,7 +206,7 @@ class Packet:
         :return: Packet Version
         :rtype: int
         """
-        return self.bytes[:2]
+        return self.version
 
     def get_type(self):
         """
@@ -213,7 +214,7 @@ class Packet:
         :return: Packet type
         :rtype: int
         """
-        return self.bytes[2: 4]
+        return self.type
 
     def get_length(self):
         """
@@ -221,7 +222,7 @@ class Packet:
         :return: Packet length
         :rtype: int
         """
-        return self.bytes[4: 8]
+        return self.length
 
     def get_body(self):
         """
@@ -229,16 +230,27 @@ class Packet:
         :return: Packet body
         :rtype: str
         """
-        return self.bytes[20:]
+        return self.body
 
     def get_buf(self):
         """
         In this function, we will make our final buffer that represents the Packet with the Struct class methods.
 
         :return The parsed packet to the network format.
-        :rtype: bytearray
+        :rtype: bytes
         """
-        pass
+        buff = b''
+        buff += self.version.to_bytes(length=2, byteorder='big')
+        buff += self.type.to_bytes(length=2, byteorder='big')
+        buff += self.length.to_bytes(length=4, byteorder='big')
+        buff += self.type.to_bytes(length=2, byteorder='big')
+        ip_tokens = [int(x) for x in self.source_ip.split(sep='.')]
+        for token in ip_tokens:
+            buff += token.to_bytes(length=2, byteorder='big')
+        buff += self.source_port.to_bytes(length=4, byteorder='big')
+        buff += bytes(self.body, 'utf-8')
+
+        return buff
 
     def get_source_server_ip(self):
         """
@@ -246,7 +258,7 @@ class Packet:
         :return: Server IP address for the sender of the packet.
         :rtype: str
         """
-        return self.bytes[8: 16]
+        return self.source_ip
 
     def get_source_server_port(self):
         """
@@ -254,7 +266,7 @@ class Packet:
         :return: Server Port address for the sender of the packet.
         :rtype: str
         """
-        return self.bytes[16: 20]
+        return self.source_port
 
     def get_source_server_address(self):
         """
@@ -265,8 +277,10 @@ class Packet:
         return self.get_source_server_ip(), self.get_source_server_port()
 
     def is_request(self):
-        # TODO
-        pass
+        if self.body[:3] == 'RES':
+            return False
+        else:
+            return True
 
 
 class PacketFactory:
@@ -276,12 +290,12 @@ class PacketFactory:
 
     @staticmethod
     def new_header(type, length, source_ip, source_port, version=1):
-        bf = bytearray(20)
-        pack_into(">b", bf, 0, version)
-        pack_into(">b", bf, 2, type)
-        pack_into(">b", bf, 4, length)
-        pack_into(">b", bf, 8, source_ip)
-        pack_into(">b", bf, 16, source_port)
+        bf = b''
+        #pack_into(">b", bf, 0, version)
+        #pack_into(">b", bf, 2, type)
+        #pack_into(">b", bf, 4, length)
+        #pack_into(">b", bf, 8, source_ip)
+        #pack_into(">b", bf, 16, source_port)
         return bf
 
     @staticmethod
@@ -299,6 +313,7 @@ class PacketFactory:
         :rtype Packet
 
         """
+        '''
         frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 6), \
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend(type.encode('utf8'))
@@ -307,6 +322,15 @@ class PacketFactory:
             frame.extend(address[1].encode('utf8'))
         elif type == 'RES':
             frame.extend('ACK'.encode('utf8'))
+        '''
+        source_ip, source_port = source_server_address
+        if type == 'REQ':
+            return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
+                          body=type + address[0] + address[1])
+        elif type == 'RES':
+            return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
+                          body=type + 'ACK')
+
 
     @staticmethod
     def new_advertise_packet(type, source_server_address, neighbour=(None, None)):
@@ -323,13 +347,23 @@ class PacketFactory:
         :rtype Packet
 
         """
-        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4), \
+        '''
+        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4),
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend(type.encode('utf8'))
         if type == 'RES':
             frame.extend('ACK'.encode('utf8'))
             frame.extend(neighbour[0].encode('utf8'))
             frame.extend(neighbour[1].encode('utf8'))
+        '''
+        source_ip, source_port = source_server_address
+        if type == 'REQ':
+            return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
+                          body='REQ')
+        elif type == 'RES':
+            return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
+                          body='RES' + neighbour[0] + neighbour[1])
+
 
     @staticmethod
     def new_join_packet(source_server_address):
@@ -342,9 +376,14 @@ class PacketFactory:
         :rtype Packet
 
         """
-        frame = PacketFactory.new_header(type=3, length=4, \
+        '''
+        frame = PacketFactory.new_header(type=3, length=4,
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend('JOIN'.encode('utf8'))
+        '''
+        source_ip, source_port = source_server_address
+        return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port, body='JOIN')
+
 
     @staticmethod
     def new_message_packet(message, source_server_address):
@@ -360,9 +399,15 @@ class PacketFactory:
         :return: New Message packet.
         :rtype: Packet
         """
-        frame = PacketFactory.new_header(type=4, length=len(message), \
+        '''
+        frame = PacketFactory.new_header(type=4, length=len(message),
                                          source_ip=source_server_address[0], source_port=source_server_address[1])
         frame.extend(message.encode('utf8'))
+        '''
+        source_ip , source_port = source_server_address
+        return Packet(type=4, version=1, length=len(message), source_ip=source_ip, source_port=source_port,
+                      body=message)
+
 
     @staticmethod
     def new_reunion_packet(type, source_address, nodes_array):
@@ -378,6 +423,7 @@ class PacketFactory:
         :return New reunion packet.
         :rtype Packet
         """
+        '''
         frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4), \
                                          source_ip=source_address[0], source_port=source_address[1])
         frame.extend(type.encode('utf8'))
@@ -385,6 +431,14 @@ class PacketFactory:
         for ip, port in nodes_array:
             frame.extend(ip.encode('utf8'))
             frame.extend(port.encode('utf8'))
+        '''
+        body = type
+        body += str(len(nodes_array)).zfill(2)
+        source_ip, source_port = source_address
+        for (ip, port) in nodes_array:
+            body = body + ip + port
+        return Packet(type=5, version=1, length=len(body), source_ip=source_ip, source_port=source_port,
+                      body=body)
 
     @staticmethod
     def parse_buffer(buffer):
@@ -394,8 +448,27 @@ class PacketFactory:
         :param buffer: The buffer that should be parse to a validate packet format
 
         :return new packet
-        :rtype: Packet
+        :rtype: list of Packet
 
         """
-        # TODO: packet validation
-        return Packet(buffer)
+        packets = []
+        while len(buffer) > 0:
+            header = buffer[:20]
+            version = int.from_bytes(header[:2], byteorder='big')
+            type = int.from_bytes(header[2:4], byteorder='big')
+            length = int.from_bytes(header[4:8], byteorder='big')
+            ip_token = header[8:16]
+            source_ip = '.'.join(
+                [str(int.from_bytes(ip_token[i:i+2], byteorder='big')).zfill(3) for i in range(0, 8, 2)]
+            )
+            source_port = int.from_bytes(header[16:20], byteorder='big')
+            body = buffer[20:20+length].decode('utf-8')
+            packets.append(Packet(version, type, length, source_ip, source_port, body))
+            buffer = buffer[20+length:]
+        return packets
+
+
+
+
+
+
