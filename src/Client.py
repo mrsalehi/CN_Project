@@ -53,7 +53,7 @@ class Client(Peer):
         self.stream.add_message_to_out_buff(self.root_address, reg_pack)
 
     def _advertise(self):
-        adv_pack = self.packet_factory.new_advertise_packet('RES', self.server_address)
+        adv_pack = self.packet_factory.new_advertise_packet('REQ', self.server_address)
         self.stream.add_message_to_out_buff(self.root_address, adv_pack)
 
     def start_user_interface(self):
@@ -81,15 +81,14 @@ class Client(Peer):
         """
         buff = self.user_interface.buffer
         for msg in buff:
-            if msg == 'Register':
+            msg_split = msg.split()
+            if msg_split[0] == 'Register':
                 self._register()
-            elif type == 'Advertise':
+            elif msg_split[0] == 'Advertise':
                 self._advertise()
-            elif type == 'SendMessage':
-                brd_cast_packet = self.packet_factory.parse_buffer(msg)
+            elif msg_split[0] == 'SendMessage':
+                brd_cast_packet = self.packet_factory.parse_buffer(msg_split[1])
                 self.send_broadcast_packet(brd_cast_packet)
-            else:
-                pass
 
         self.user_interface.buffer.clear()
 
