@@ -451,8 +451,8 @@ class PacketFactory:
 
         """
         packets = []
-        while len(buffer) > 0:
-            header = buffer[:20]
+        for data in buffer:
+            header = data[:20]
             version = int.from_bytes(header[:2], byteorder='big')
             type = int.from_bytes(header[2:4], byteorder='big')
             length = int.from_bytes(header[4:8], byteorder='big')
@@ -461,9 +461,9 @@ class PacketFactory:
                 [str(int.from_bytes(ip_token[i:i+2], byteorder='big')).zfill(3) for i in range(0, 8, 2)]
             )
             source_port = int.from_bytes(header[16:20], byteorder='big')
-            body = buffer[20:20+length].decode('utf-8')
+            body = data[20:20+length].decode('utf-8')
             packets.append(Packet(version, type, length, source_ip, source_port, body))
-            buffer = buffer[20+length:]
+
         return packets
 
 
