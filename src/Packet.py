@@ -243,7 +243,6 @@ class Packet:
         buff += self.version.to_bytes(length=2, byteorder='big')
         buff += self.type.to_bytes(length=2, byteorder='big')
         buff += self.length.to_bytes(length=4, byteorder='big')
-        buff += self.type.to_bytes(length=2, byteorder='big')
         ip_tokens = [int(x) for x in self.source_ip.split(sep='.')]
         for token in ip_tokens:
             buff += token.to_bytes(length=2, byteorder='big')
