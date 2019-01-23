@@ -325,7 +325,7 @@ class PacketFactory:
         source_ip, source_port = source_server_address
         if type == 'REQ':
             return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
-                          body=type + address[0] + address[1])
+                          body=type + address[0] + str(address[1]).zfill(5))
         elif type == 'RES':
             return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
                           body=type + 'ACK')

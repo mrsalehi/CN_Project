@@ -65,7 +65,9 @@ class Stream:
 
         :return:
         """
-        self.nodes[server_address] = Node(server_address=server_address, set_register=set_register_connection)
+        server_ip, server_port = server_address
+        server_ip = Node.parse_ip(server_ip)
+        self.nodes[server_address] = Node(server_address=(server_ip, server_port), set_register=set_register_connection)
 
     def remove_node(self, node):
         """
