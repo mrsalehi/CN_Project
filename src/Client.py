@@ -87,7 +87,8 @@ class Client(Peer):
             elif msg_split[0] == 'Advertise':
                 self._advertise()
             elif msg_split[0] == 'SendMessage':
-                brd_cast_packet = self.packet_factory.parse_buffer(msg_split[1])
+                brd_cast_packet = self.packet_factory.new_message_packet(msg_split[1],
+                                                                         source_server_address=self.server_address)
                 self.send_broadcast_packet(brd_cast_packet)
 
         self.user_interface.buffer.clear()
@@ -111,7 +112,6 @@ class Client(Peer):
         :return:
         """
         while True:
-            time.sleep(2)
             t = time.time()
             self.handle_user_interface_buffer()
             in_buff = self.stream.read_in_buf()
@@ -124,6 +124,7 @@ class Client(Peer):
 
             self.stream.send_out_buf_messages()
             self.stream.clear_in_buff()
+            time.sleep(2)
 
     def run_reunion_daemon(self):
         """
