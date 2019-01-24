@@ -1,9 +1,9 @@
-from .Peer import Peer
-from .Stream import Stream
-from .Packet import Packet, PacketFactory
-from .UserInterface import UserInterface
-from .tools.SemiNode import SemiNode
-from .tools.NetworkGraph import NetworkGraph, GraphNode
+from Peer import Peer
+from Stream import Stream
+from Packet import Packet, PacketFactory
+from UserInterface import UserInterface
+from tools.SemiNode import SemiNode
+from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
@@ -34,21 +34,20 @@ class Client(Peer):
         :type is_root: bool
         :type root_address: tuple
         """
-        server_ip = '.'.join(str(int(part)).zfill(3) for part in server_ip.split('.'))
         super(Client, self).__init__(server_ip, server_port, is_root, root_address)
         self.parent = None  # address of the parent node which will be a tuple
         self._last_reunion_time = None  # last time a reunion hello packet was sent
         self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
         self.root_address = root_address
-        self._register()
         self.start_user_interface()
         self.valid_time = 20
         self.adv_sent = False
         self.t_run = threading.Thread(target=self.run, args=())
-        self.t_run.run()
+        self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
 
     def _register(self):
+        print('Inside Register')
         self.stream.add_node(self.root_address, set_register_connection=True)
         reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf())
@@ -65,7 +64,7 @@ class Client(Peer):
         """
         self.user_interface = UserInterface()
         t_run_ui = threading.Thread(target=self.user_interface.run, args=())
-        t_run_ui.run()
+        t_run_ui.start()
 
     def handle_user_interface_buffer(self):
         """
@@ -81,6 +80,7 @@ class Client(Peer):
         :return:
         """
         buff = self.user_interface.buffer
+        #print(buff)
         for msg in buff:
             msg_split = msg.split()
             if msg_split[0] == 'Register':

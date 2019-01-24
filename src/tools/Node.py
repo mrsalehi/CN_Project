@@ -18,7 +18,7 @@ class Node:
         :param set_register:
         """
         self.server_ip = Node.parse_ip(server_address[0])
-        self.server_port = Node.parse_port(server_address[1])  # TODO: We may need a conversion from str to int
+        self.server_port = server_address[1]
         self.client_socket = ClientSocket(mode=self.server_ip, port=self.server_port)  # TODO: fill-in the parameters
         self.is_root = set_root
         self.is_register = set_register

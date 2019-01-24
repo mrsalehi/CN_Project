@@ -29,9 +29,10 @@ class Stream:
             queue.put(bytes('ACK', 'utf8'))
             self._server_in_buf.append(data)
 
-        self.tcp_server = TCPServer(mode=ip, port=port, read_callback=callback)
-        self.t_tcp_server = threading.Thread(target=self.tcp_server.run(), args=())
-        self.t_tcp_server.run()
+        self.tcp_server = TCPServer(mode='localhost', port=port, read_callback=callback)
+        self.t_tcp_server = threading.Thread(target=self.tcp_server.run, args=())
+        self.t_tcp_server.start()
+        #print('Inside stream after thread start')
         self.ip = Node.parse_ip(ip)
         self.port = Node.parse_port(port)
         self.nodes = {}
@@ -99,7 +100,7 @@ class Stream:
         :return: The node that input address.
         :rtype: Node
         """
-        ip, port = Node.parse_ip(ip), Node.parse_port(port)
+        ip, port = Node.parse_ip(ip), port
         return self.nodes.get((ip, port), None)
 
     def add_message_to_out_buff(self, address, message):
@@ -118,8 +119,7 @@ class Stream:
         ip, port = address
         node = self.get_node_by_server(ip, port)
         if node is not None:
-            buff = message.get_buff()  ## TODO: Not sure about this!
-            node.add_message_to_out_buff(buff)
+            node.add_message_to_out_buff(message)
         else:
             raise RuntimeError
 
@@ -154,5 +154,5 @@ class Stream:
 
         :return:
         """
-        for node in self.nodes:
+        for node in self.nodes.values():
             self.send_messages_to_node(node)

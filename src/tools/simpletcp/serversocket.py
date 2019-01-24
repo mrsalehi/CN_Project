@@ -34,6 +34,7 @@ class ServerSocket:
         # Make it non-blocking.
         self._socket.setblocking(0)
         # Bind the socket, so it can listen.
+        print(self.ip, self.port)
         self._socket.bind((self.ip, self.port))
         # Save the callback
         self.callback = read_callback
@@ -45,6 +46,7 @@ class ServerSocket:
         # Save the number of bytes to be received each time we read from
         # a socket
         self.received_bytes = received_bytes
+        print('bbb')
 
     def run(self):
         # Start listening

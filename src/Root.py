@@ -1,9 +1,9 @@
-from .Peer import Peer
-from .Stream import Stream
-from .Packet import Packet
-from .UserInterface import UserInterface
-from .tools.SemiNode import SemiNode
-from .tools.NetworkGraph import NetworkGraph, GraphNode
+from Peer import Peer
+from Stream import Stream
+from Packet import Packet
+from UserInterface import UserInterface
+from tools.SemiNode import SemiNode
+from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
