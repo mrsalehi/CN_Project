@@ -132,7 +132,7 @@ class Peer:
 
         :return:
         """
-        for node in self.stream.nodes.values():
+        for node in self.stream.nodes:
             if not node.is_register:
                 self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet.get_buf())
 
@@ -154,19 +154,19 @@ class Peer:
             print("Recvd packet body: ", packet.get_body())
             print('Recvd packet type: ', type)
         if type == 1:
-            self.__handle_register_packet(packet)
+            self._handle_register_packet(packet)
         elif type == 2:
-            self.__handle_advertise_packet(packet)
+            self._handle_advertise_packet(packet)
         elif type == 3:
-            self.__handle_join_packet(packet)
+            self._handle_join_packet(packet)
         elif type == 4:
-            self.__handle_message_packet(packet)
+            self._handle_message_packet(packet)
         elif type == 5:
-            self.__handle_reunion_packet(packet)
+            self._handle_reunion_packet(packet)
         else:
             raise NotImplemented
 
-    def __handle_advertise_packet(self, packet):
+    def _handle_advertise_packet(self, packet):
         """
         For advertising peers in the network, It is peer discovery message.
 
@@ -198,7 +198,7 @@ class Peer:
         print('handle advertise')
         pass
 
-    def __handle_register_packet(self, packet):
+    def _handle_register_packet(self, packet):
         """
         For registration a new node to the network at first we should make a Node with stream.add_node for'sender' and
         save it.
@@ -216,7 +216,7 @@ class Peer:
         print('handle register')
         pass
 
-    def __check_neighbour(self, address):
+    def _check_neighbour(self, address):
         """
         It checks is the address in our neighbours array or not.
 
@@ -232,34 +232,32 @@ class Peer:
                 return True
         return False
 
-    def __handle_join_packet(self, packet):
+    def _handle_join_packet(self, packet):
         pass
 
-    def __handle_message_packet(self, packet):
+    def _handle_message_packet(self, packet):
         """
-        Only broadcast message to the other nodes.
+                Only broadcast message to the other nodes.
 
-        Warnings:
-            1. Do not forget to ignore messages from unknown sources.
-            2. Make sure that you are not sending a message to a register_connection.
+                Warnings:
+                    1. Do not forget to ignore messages from unknown sources.
+                    2. Make sure that you are not sending a message to a register_connection.
 
-        :param packet: Arrived message packet
+                :param packet: Arrived message packet
 
-        :type packet Packet
+                :type packet Packet
 
-        :return:
-        """
+                :return:
+                """
         source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
         brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
-        if source_address in self.stream.nodes.keys():
-            for node in self.stream.nodes.values():
+        if source_address in [node.get_server_address() for node in self.stream.nodes]:
+            for node in self.stream.nodes:
                 node_address = node.get_server_address()
-                if node_address != source_address:
+                if node_address != source_address and not node.is_register:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
-        else:
-            pass
 
-    def __handle_reunion_packet(self, packet):
+    def _handle_reunion_packet(self, packet):
         """
         In this function we should handle Reunion packet was just arrived.
 

@@ -113,7 +113,7 @@ class Root(Peer):
                 if t - last_reunion_time > valid_time:
                     self.graph.remove_node(node_address)
                     del self.last_reunion_times[node_address]
-                    node = self.stream.get_node_by_server(node_address[0], node_address[1])
+                    node = self.stream.get_node_by_server(node_address[0], node_address[1], True)
                     self.stream.remove_node(node)
             time.sleep(2)
 
@@ -135,15 +135,15 @@ class Root(Peer):
             print("Recvd packet body: ", packet.get_body())
             print('Recvd packet type: ', type)
         if type == 1:
-            self.__handle_register_packet(packet)
+            self._handle_register_packet(packet)
         elif type == 2:
-            self.__handle_advertise_packet(packet)
+            self._handle_advertise_packet(packet)
         elif type == 3:
-            self.__handle_join_packet(packet)
+            self._handle_join_packet(packet)
         elif type == 4:
-            self.__handle_message_packet(packet)
+            self._handle_message_packet(packet)
         elif type == 5:
-            self.__handle_reunion_packet(packet)
+            self._handle_reunion_packet(packet)
         else:
             raise NotImplemented
 
@@ -156,12 +156,12 @@ class Root(Peer):
 
         :return:
         """
-        for node in self.stream.nodes.values():
+        for node in self.stream.nodes:
             if source_address == node.get_server_address() and node.is_register:
                 return True
         return False
 
-    def __handle_advertise_packet(self, packet):
+    def _handle_advertise_packet(self, packet):
         """
         For advertising peers in the network, It is peer discovery message.
 
@@ -184,10 +184,10 @@ class Root(Peer):
         if packet.is_request():
             source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
             if self.__check_registered((source_ip, source_port)):
-                parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
+                parent_ip, parent_port = self._get_neighbour(sender=(source_ip, source_port))
                 adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address,
                                                                         neighbour=(parent_ip, parent_port))
-                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf())
+                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf(), True)
                 node = self.graph.find_node(source_ip, source_port)
                 if node is None:
                     self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
@@ -195,7 +195,7 @@ class Root(Peer):
                     node.alive = True
                 self.last_reunion_times[(source_ip, source_port)] = t
 
-    def __handle_register_packet(self, packet):
+    def _handle_register_packet(self, packet):
         """
         For registration a new node to the network at first we should make a Node with stream.add_node for'sender' and
         save it.
@@ -213,9 +213,9 @@ class Root(Peer):
             if not self.__check_registered(address):
                 self.stream.add_node(address, set_register_connection=True)
                 reg_res_pack = self.packet_factory.new_register_packet('RES', self.server_address)
-                self.stream.add_message_to_out_buff(address, reg_res_pack.get_buf())
+                self.stream.add_message_to_out_buff(address, reg_res_pack.get_buf(), True)
 
-    def __handle_message_packet(self, packet):
+    def _handle_message_packet(self, packet):
         """
         Only broadcast message to the other nodes.
 
@@ -229,15 +229,9 @@ class Root(Peer):
 
         :return:
         """
-        address = (packet.get_source_server_ip(), packet.get_source_server_port())
-        if address in self.stream.nodes.keys():  # check if the sender is our neighbor
-            brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
-            for node in self.stream.nodes.values():
-                node_address = node.get_server_address()
-                if node_address != address and not node.is_register:
-                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
+        super(Root, self)._handle_message_packet(packet)
 
-    def __handle_reunion_packet(self, packet):
+    def _handle_reunion_packet(self, packet):
         """
         In this function we should handle Reunion packet was just arrived.
 
@@ -270,11 +264,11 @@ class Root(Peer):
         else:
             raise NotImplementedError
 
-    def __handle_join_packet(self, packet):
+    def _handle_join_packet(self, packet):
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         self.stream.add_node(address)
 
-    def __get_neighbour(self, sender):
+    def _get_neighbour(self, sender):
         """
         Finds the best neighbour for the 'sender' from the network_nodes array.
         This function only will call when you are a root peer.

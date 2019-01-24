@@ -35,7 +35,7 @@ class Stream:
         #print('Inside stream after thread start')
         self.ip = Node.parse_ip(ip)
         self.port = Node.parse_port(port)
-        self.nodes = {}
+        self.nodes = []
         self._server_in_buf = []
 
     def get_server_address(self):
@@ -66,9 +66,10 @@ class Stream:
 
         :return:
         """
+        print("node ",server_address, set_register_connection, " added to stream nodes")
         server_ip, server_port = server_address
         server_ip = Node.parse_ip(server_ip)
-        self.nodes[server_address] = Node(server_address=(server_ip, server_port), set_register=set_register_connection)
+        self.nodes.append(Node(server_address=(server_ip, server_port), set_register=set_register_connection))
 
     def remove_node(self, node):
         """
@@ -82,11 +83,10 @@ class Stream:
 
         :return:
         """
-        address = (node.server_ip, node.server_port)
-        del self.nodes[address]
+        self.nodes.remove(node)
         node.close()
 
-    def get_node_by_server(self, ip, port):
+    def get_node_by_server(self, ip, port, is_register=False):
         """
 
         Will find the node that has IP/Port address of input.
@@ -100,10 +100,16 @@ class Stream:
         :return: The node that input address.
         :rtype: Node
         """
-        ip, port = Node.parse_ip(ip), port
-        return self.nodes.get((ip, port), None)
+        # print('List of nodes in stream ', self.get_server_address())
+        # for node in self.nodes:
+        #     print(node.get_server_address(), node.is_register)
+        node_address = (Node.parse_ip(ip), port)
+        for node in self.nodes:
+            if node.get_server_address() == node_address and node.is_register == is_register:
+                return node
+        return None
 
-    def add_message_to_out_buff(self, address, message):
+    def add_message_to_out_buff(self, address, message, is_register=False):
         """
         In this function, we will add the message to the output buffer of the node that has the input address.
         Later we should use send_out_buf_messages to send these buffers into their sockets.
@@ -117,7 +123,7 @@ class Stream:
         :return:
         """
         ip, port = address
-        node = self.get_node_by_server(ip, port)
+        node = self.get_node_by_server(ip, port, is_register)
         if node is not None:
             node.add_message_to_out_buff(message)
         else:
@@ -148,7 +154,8 @@ class Stream:
         try:
             node.send_message()
         except OSError:
-            del self.nodes[node.get_server_address()]
+            node = self.get_server_address(node.get_server_address())
+            self.nodes.remove(node)
 
     def send_out_buf_messages(self, only_register=False):
         """
@@ -156,5 +163,5 @@ class Stream:
 
         :return:
         """
-        for node in self.nodes.values():
+        for node in self.nodes:
             self.send_messages_to_node(node)

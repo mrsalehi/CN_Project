@@ -52,11 +52,11 @@ class Client(Peer):
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
         reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
-        self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf())
+        self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf(), True)
 
     def _advertise(self):
         adv_pack = self.packet_factory.new_advertise_packet('REQ', self.server_address)
-        self.stream.add_message_to_out_buff(self.root_address, adv_pack.get_buf())
+        self.stream.add_message_to_out_buff(self.root_address, adv_pack.get_buf(), True)
 
     def handle_user_interface_buffer(self):
         """
@@ -150,8 +150,9 @@ class Client(Peer):
                 t = time.time()
                 if t - self.last_reunion_time > self.valid_time:
                     adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
-                    self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf())
-                    self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address[0], self.root_address[1]))
+                    self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf(), True)
+                    self.stream.send_messages_to_node(
+                        self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
                                                                         nodes_array=[self.server_address])
@@ -179,19 +180,19 @@ class Client(Peer):
             print("Recvd packet body: ", packet.get_body())
             print('Recvd packet type: ', type)
         if type == 1:
-            self.__handle_register_packet(packet)
+            self._handle_register_packet(packet)
         elif type == 2:
-            self.__handle_advertise_packet(packet)
+            self._handle_advertise_packet(packet)
         elif type == 3:
-            self.__handle_join_packet(packet)
+            self._handle_join_packet(packet)
         elif type == 4:
-            self.__handle_message_packet(packet)
+            self._handle_message_packet(packet)
         elif type == 5:
-            self.__handle_reunion_packet(packet)
+            self._handle_reunion_packet(packet)
         else:
             raise NotImplemented
 
-    def __handle_advertise_packet(self, packet):
+    def _handle_advertise_packet(self, packet):
         """
         For advertising peers in the network, It is peer discovery message.
 
@@ -225,11 +226,11 @@ class Client(Peer):
             parent_ip = body[3: 18]
             parent_port = int(body[-5:])
             join_pack = self.packet_factory.new_join_packet(self.server_address)
-            address = (parent_ip, parent_port)
-            print('parent address: ', address)
-            self.parent = address
-            self.stream.add_node(address)
-            self.stream.add_message_to_out_buff(address, join_pack.get_buf())
+            parent_address = (parent_ip, parent_port)
+            print('parent address: ', parent_address)
+            self.parent = parent_address
+            self.stream.add_node(parent_address)
+            self.stream.add_message_to_out_buff(parent_address, join_pack.get_buf())
             self._reunion_mode = 'acceptance'
             if not self.adv_sent:
                 self.adv_sent = True
@@ -237,7 +238,7 @@ class Client(Peer):
         else:
             pass
 
-    def __handle_message_packet(self, packet):
+    def _handle_message_packet(self, packet):
         """
         Only broadcast message to the other nodes.
 
@@ -251,17 +252,9 @@ class Client(Peer):
 
         :return:
         """
-        source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
-        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
-        if source_address in self.stream.nodes.keys():
-            for node in self.stream.nodes.values():
-                node_address = node.get_server_address()
-                if node_address != source_address:
-                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
-        else:
-            pass
+        super(Client, self)._handle_message_packet(packet)
 
-    def __handle_reunion_packet(self, packet):
+    def _handle_reunion_packet(self, packet):
         """
         In this function we should handle Reunion packet was just arrived.
 
@@ -289,7 +282,7 @@ class Client(Peer):
         n_entries = body[3:5]
         entries = body[5:]
         length = len(entries)
-        print('reunion ' + type  + ' ' +  entries)
+        # print('reunion ' + type + ' ' +  entries)
         if type == 'REQ':
             nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
             nodes_array.append(self.server_address)
@@ -310,7 +303,7 @@ class Client(Peer):
         else:
             raise NotImplementedError
 
-    def __handle_join_packet(self, packet):
+    def _handle_join_packet(self, packet):
         """
         When a Join packet received we should add a new node to our nodes array.
         In reality, there is a security level that forbids joining every node to our network.
@@ -325,7 +318,7 @@ class Client(Peer):
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         self.stream.add_node(address)
 
-    def __handle_register_packet(self, packet):
+    def _handle_register_packet(self, packet):
         """
         For registration a new node to the network at first we should make a Node with stream.add_node for'sender' and
         save it.
