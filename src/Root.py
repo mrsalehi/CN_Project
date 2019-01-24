@@ -253,7 +253,7 @@ class Root(Peer):
             for node in self.stream.nodes.values():
                 node_address = node.get_server_address()
                 if node_address != address and not node.is_register:
-                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
 
     def __handle_reunion_packet(self, packet):
         """

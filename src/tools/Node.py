@@ -34,7 +34,7 @@ class Node:
         :return:
         """
         for data in self.out_buff:
-            # print("Sending msg: ", data)
+            print("Sending msg: ", data)
             self.client_socket.send(data)
         self.out_buff.clear()
 
