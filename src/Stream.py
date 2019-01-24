@@ -145,8 +145,10 @@ class Stream:
 
         :return:
         """
-        # TODO: Do not forget to insert an exception handler here
-        node.send_message()
+        try:
+            node.send_message()
+        except OSError:
+            del self.nodes[node.get_server_address()]
 
     def send_out_buf_messages(self, only_register=False):
         """
