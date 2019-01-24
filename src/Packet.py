@@ -361,7 +361,7 @@ class PacketFactory:
                           body='REQ')
         elif type == 'RES':
             return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
-                          body='RES' + neighbour[0] + neighbour[1])
+                          body='RES' + neighbour[0] + str(neighbour[1]).zfill(5))
 
 
     @staticmethod
@@ -450,6 +450,7 @@ class PacketFactory:
         :rtype: list of Packet
 
         """
+        print(buffer)
         packets = []
         for data in buffer:
             header = data[:20]

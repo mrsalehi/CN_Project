@@ -19,7 +19,7 @@ class Node:
         """
         self.server_ip = Node.parse_ip(server_address[0])
         self.server_port = server_address[1]
-        self.client_socket = ClientSocket(mode=self.server_ip, port=self.server_port)  # TODO: fill-in the parameters
+        self.client_socket = ClientSocket(mode='localhost', port=self.server_port, single_use=False)  # TODO
         self.is_root = set_root
         self.is_register = set_register
 
@@ -33,7 +33,9 @@ class Node:
 
         :return:
         """
-        self.client_socket.send(self.out_buff)
+        for data in self.out_buff:
+            print("Sending msg: ", data)
+            self.client_socket.send(data)
         self.out_buff.clear()
 
     def add_message_to_out_buff(self, message):

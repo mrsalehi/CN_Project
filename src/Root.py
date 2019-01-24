@@ -85,6 +85,7 @@ class Root(Peer):
         while True:
             in_buff = self.stream.read_in_buf()
             packets = self.packet_factory.parse_buffer(in_buff)
+            # print(packets)
             for packet in packets:
                 self.handle_packet(packet)
             self.stream.send_out_buf_messages()
@@ -107,14 +108,14 @@ class Root(Peer):
 
         :return:
         """
-        valid_time = 0  # TODO: Finding the proper value of valid_time
+        valid_time = 40  # TODO: Finding the proper value of valid_time
         while True:
             t = time.time()
             for node_address, last_reunion_time in self.last_reunion_times.copy().items():
                 if t - last_reunion_time > valid_time:
                     self.graph.remove_node(node_address)
                     del self.last_reunion_times[node_address]
-                    node = self.stream.get_node_by_server(node_address)
+                    node = self.stream.get_node_by_server(node_address[0], node_address[1])
                     self.stream.remove_node(node)
             time.sleep(2)
 
@@ -149,6 +150,8 @@ class Root(Peer):
 
         """
         type = packet.get_type()
+        print("packet body: ", packet.get_body())
+        print('packet type: ', type)
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
@@ -171,7 +174,7 @@ class Root(Peer):
 
         :return:
         """
-        for node in self.stream.nodes:
+        for node in self.stream.nodes.values():
             if source_address == node.get_server_address() and node.is_register:
                 return True
         return False

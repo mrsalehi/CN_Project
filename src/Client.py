@@ -36,7 +36,7 @@ class Client(Peer):
         """
         super(Client, self).__init__(server_ip, server_port, is_root, root_address)
         self.parent = None  # address of the parent node which will be a tuple
-        self._last_reunion_time = None  # last time a reunion hello packet was sent
+        self.last_reunion_time = 0  # last time a reunion hello packet was sent
         self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
         self.root_address = root_address
         self.start_user_interface()
@@ -45,9 +45,10 @@ class Client(Peer):
         self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
+        self.is_registered = False
+        self._register()
 
     def _register(self):
-        print('Inside Register')
         self.stream.add_node(self.root_address, set_register_connection=True)
         reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf())
@@ -80,12 +81,12 @@ class Client(Peer):
         :return:
         """
         buff = self.user_interface.buffer
-        #print(buff)
         for msg in buff:
             msg_split = msg.split()
             if msg_split[0] == 'Register':
                 self._register()
             elif msg_split[0] == 'Advertise':
+                print('Advertise msg')
                 self._advertise()
             elif msg_split[0] == 'SendMessage':
                 brd_cast_packet = self.packet_factory.new_message_packet(msg_split[1],
@@ -119,9 +120,14 @@ class Client(Peer):
             packets = self.packet_factory.parse_buffer(in_buff)
             for packet in packets:
                 type = packet.get_type()  # Note the second warning in comments
-                if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
-                    (type == 2) or (self.valid_time == 'acceptance'):
-                    self.handle_packet(packet)
+                if self.is_registered:
+                    print('registered now...')
+                    if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
+                        (type == 2) or (self.valid_time == 'acceptance'):
+                        self.handle_packet(packet)
+                else:
+                    if packet.get_type() == 1:
+                        self.handle_packet(packet) # TODO
 
             self.stream.send_out_buf_messages()
             self.stream.clear_in_buff()
@@ -192,15 +198,17 @@ class Client(Peer):
         :type packet Packet
         """
         type = packet.get_type()
-        if type is 'Register':
+        print("packet body: ", packet.get_body())
+        print('packet type: ', type)
+        if type == 1:
             self.__handle_register_packet(packet)
-        elif type is 'Advertise':
+        elif type == 2:
             self.__handle_advertise_packet(packet)
-        elif type is 'Join':
+        elif type == 3:
             self.__handle_join_packet(packet)
-        elif type is 'Message':
+        elif type == 4:
             self.__handle_message_packet(packet)
-        elif type is 'Reunion':
+        elif type == 5:
             self.__handle_reunion_packet(packet)
         else:
             raise NotImplemented
@@ -234,6 +242,7 @@ class Client(Peer):
 
         :return:
         """
+        print(packet.get_body())
         if not packet.is_request():
             body = packet.get_body()
             parent_ip = body[3: 18]
@@ -337,4 +346,22 @@ class Client(Peer):
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         self.stream.add_node(address)
 
+    def __handle_register_packet(self, packet):
+        """
+        For registration a new node to the network at first we should make a Node with stream.add_node for'sender' and
+        save it.
+
+        Code design suggestion:
+            1.For checking whether an address is registered since now or not you can use SemiNode object except Node.
+
+        Warnings:
+            1. Don't forget to ignore Register Request packets when you are a non-root peer.
+
+        :param packet: Arrived register packet
+        :type packet Packet
+        :return:
+        """
+        if not packet.is_request():
+            self.is_registered = True
+        #print('Register packet is handled...')
 
