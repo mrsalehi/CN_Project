@@ -218,8 +218,6 @@ class Root(Peer):
         Code design suggestion:
             1.For checking whether an address is registered since now or not you can use SemiNode object except Node.
 
-        Warnings:
-            1. Don't forget to ignore Register Request packets when you are a non-root peer.
 
         :param packet: Arrived register packet
         :type packet Packet
@@ -230,9 +228,7 @@ class Root(Peer):
             if not self.__check_registered(address):
                 self.stream.add_node(address, set_register_connection=True)
                 reg_res_pack = self.packet_factory.new_register_packet('RES', self.server_address)
-                self.stream.add_message_to_out_buff(address, reg_res_pack)
-        else:
-            pass
+                self.stream.add_message_to_out_buff(address, reg_res_pack.get_buf())
 
     def __handle_message_packet(self, packet):
         """
@@ -248,15 +244,13 @@ class Root(Peer):
 
         :return:
         """
-        address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
-        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
+        address = (packet.get_source_server_ip(), packet.get_source_server_port())
         if address in self.stream.nodes.keys():  # check if the sender is our neighbor
+            brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
             for node in self.stream.nodes:
                 node_address = node.get_server_address()
                 if node_address != address and not node.is_register:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
-        else:
-            pass
 
     def __handle_reunion_packet(self, packet):
         """
@@ -266,17 +260,9 @@ class Root(Peer):
             If you are root Peer you should answer with a new Reunion Hello Back packet.
             At first extract all addresses in the packet body and append them in descending order to the new packet.
             You should send the new packet to the first address in the arrived packet.
-            If you are a non-root Peer append your IP/Port address to the end of the packet and send it to your parent.
-
-        Reunion Hello Back:
-            Check that you are the end node or not; If not only remove your IP/Port address and send the packet to the next
-            address, otherwise you received your response from the root and everything is fine.
-
         Warnings:
             1. Every time adding or removing an address from packet don't forget to update Entity Number field.
             2. If you are the root, update last Reunion Hello arrival packet from the sender node and turn it on.
-            3. If you are the end node, update your Reunion mode from pending to acceptance.
-
 
         :param packet: Arrived reunion packet
         :return:
