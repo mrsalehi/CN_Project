@@ -66,7 +66,6 @@ class ClientSocket:
         the server we're talking to.
 
         """
-        print('inside clientsocket send...')
         if self.single_use:
             # If the socket is single-use and we've already used it:
             if self.used:
@@ -81,7 +80,6 @@ class ClientSocket:
             # Turn it into UTF-8 bytes.
             data = bytes(data, "UTF-8")
         # If the data isn't bytes at this point, something went wrong.
-        print(data)
         if type(data) != bytes:
             print("data must be a string or bytes", file=sys.stderr)
             raise ValueError
@@ -97,7 +95,7 @@ class ClientSocket:
             # Keep track of the fact that this is closed.
             self.closed = True
         # Return the response
-        print('end of clientsocket send...')
+        print('Msg sent...')
         return response
 
     def close(self):

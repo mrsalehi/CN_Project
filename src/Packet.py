@@ -327,7 +327,7 @@ class PacketFactory:
             return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
                           body=type + address[0] + str(address[1]).zfill(5))
         elif type == 'RES':
-            return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
+            return Packet(type=1, version=1, length=6, source_ip=source_ip, source_port=source_port,
                           body=type + 'ACK')
 
 
@@ -360,7 +360,7 @@ class PacketFactory:
             return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
                           body='REQ')
         elif type == 'RES':
-            return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
+            return Packet(type=2, version=1, length=23, source_ip=source_ip, source_port=source_port,
                           body='RES' + neighbour[0] + str(neighbour[1]).zfill(5))
 
 
@@ -381,7 +381,7 @@ class PacketFactory:
         frame.extend('JOIN'.encode('utf8'))
         '''
         source_ip, source_port = source_server_address
-        return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port, body='JOIN')
+        return Packet(type=3, version=1, length=4, source_ip=source_ip, source_port=source_port, body='JOIN')
 
 
     @staticmethod
@@ -435,7 +435,7 @@ class PacketFactory:
         body += str(len(nodes_array)).zfill(2)
         source_ip, source_port = source_address
         for (ip, port) in nodes_array:
-            body = body + ip + port
+            body = body + ip + str(port).zfill(5)
         return Packet(type=5, version=1, length=len(body), source_ip=source_ip, source_port=source_port,
                       body=body)
 

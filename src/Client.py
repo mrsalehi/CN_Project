@@ -121,7 +121,7 @@ class Client(Peer):
             for packet in packets:
                 type = packet.get_type()  # Note the second warning in comments
                 if self.is_registered:
-                    print('registered now...')
+                    #print('registered now...')
                     if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
                         (type == 2) or (self.valid_time == 'acceptance'):
                         self.handle_packet(packet)
@@ -153,6 +153,7 @@ class Client(Peer):
 
         :return:
         """
+        self.last_reunion_time = time.time()
         while True:
             time.sleep(4)
             t = time.time()
@@ -166,7 +167,8 @@ class Client(Peer):
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
                                                                         nodes_array=[self.server_address])
-                self.stream.add_message_to_out_buff(self.parent, reunion_packet)
+                self.stream.add_message_to_out_buff(self.parent, reunion_packet.get_buf())
+                print('Sending reunion packet...')
                 self.last_reunion_time = t
                 self._reunion_mode = 'pending'
 
@@ -198,8 +200,7 @@ class Client(Peer):
         :type packet Packet
         """
         type = packet.get_type()
-        print("packet body: ", packet.get_body())
-        print('packet type: ', type)
+        print("Recvd packet body and type:  % s , %d" % (packet.get_body(), packet.get_type()))
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
@@ -242,7 +243,6 @@ class Client(Peer):
 
         :return:
         """
-        print(packet.get_body())
         if not packet.is_request():
             body = packet.get_body()
             parent_ip = body[3: 18]
@@ -255,7 +255,7 @@ class Client(Peer):
             self._reunion_mode = 'acceptance'
             if not self.adv_sent:
                 self.adv_sent = True
-                self.t_reunion_daemon.run()
+                self.t_reunion_daemon.start()
         else:
             pass
 

@@ -23,7 +23,7 @@ class Node:
         self.is_root = set_root
         self.is_register = set_register
 
-        print("Server Address: ", server_address)
+        #print("Server Address: ", server_address)
 
         self.out_buff = []
 

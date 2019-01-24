@@ -150,8 +150,8 @@ class Root(Peer):
 
         """
         type = packet.get_type()
-        print("packet body: ", packet.get_body())
-        print('packet type: ', type)
+        print("Recvd packet body: ", packet.get_body())
+        print('Recvd packet type: ', type)
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
