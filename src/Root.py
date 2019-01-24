@@ -37,9 +37,9 @@ class Root(Peer):
         self.last_reunion_times = {}
         self.graph = NetworkGraph(GraphNode(self.server_address))
         self.t_run = threading.Thread(target=self.run, args=())
-        self.t_run.run()
+        self.t_run.start()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
-        self.t_run_reunion_daemon.run()
+        self.t_run_reunion_daemon.start()
 
     def start_user_interface(self):
         """
@@ -87,8 +87,8 @@ class Root(Peer):
             packets = self.packet_factory.parse_buffer(in_buff)
             for packet in packets:
                 self.handle_packet(packet)
-
             self.stream.send_out_buf_messages()
+            self.stream.clear_in_buff()
             time.sleep(2)
 
     def run_reunion_daemon(self):
@@ -102,24 +102,21 @@ class Root(Peer):
         Warnings:
             1. If we are the root of the network in the situation that we want to turn a node off, make sure that you will not
                advertise the nodes sub-tree in our GraphNode.
-            2. If we are a non-root Peer, save the time when you have sent your last Reunion Hello packet; You need this
-               time for checking whether the Reunion was failed or not.
             3. For choosing time intervals you should wait until Reunion Hello or Reunion Hello Back arrival,
                pay attention that our NetworkGraph depth will not be bigger than 8. (Do not forget main loop sleep time)
-            4. Suppose that you are a non-root Peer and Reunion was failed, In this time you should make a new Advertise
-               Request packet and send it through your register_connection to the root; Don't forget to send this packet
-               here, because in the Reunion Failure mode our main loop will not work properly and everything will be got stuck!
+
         :return:
         """
         valid_time = 0  # TODO: Finding the proper value of valid_time
         while True:
             t = time.time()
-            for node_address, last_reunion_time in self.last_reunion_times.items():
+            for node_address, last_reunion_time in self.last_reunion_times.copy().items():
                 if t - last_reunion_time > valid_time:
                     self.graph.remove_node(node_address)
-                    node = self.stream.get_node_by_server(node_address)
                     del self.last_reunion_times[node_address]
+                    node = self.stream.get_node_by_server(node_address)
                     self.stream.remove_node(node)
+            time.sleep(2)
 
     def send_broadcast_packet(self, broadcast_packet):
         """
@@ -134,9 +131,9 @@ class Root(Peer):
 
         :return:
         """
-        msg = None  # TODO: Convert broadcast_packet to bytes...
         for node in self.stream.nodes:
-            self.stream.add_message_to_out_buff(node.get_server_address(), message=msg)
+            if not node.is_register:
+                self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet.get_buf())
 
     def handle_packet(self, packet):
         """
@@ -152,15 +149,15 @@ class Root(Peer):
 
         """
         type = packet.get_type()
-        if type is 'Register':
+        if type == 1:
             self.__handle_register_packet(packet)
-        elif type is 'Advertise':
+        elif type == 2:
             self.__handle_advertise_packet(packet)
-        elif type is 'Join':
+        elif type == 3:
             self.__handle_join_packet(packet)
-        elif type is 'Message':
+        elif type == 4:
             self.__handle_message_packet(packet)
-        elif type is 'Reunion':
+        elif type == 5:
             self.__handle_reunion_packet(packet)
         else:
             raise NotImplemented
@@ -186,10 +183,6 @@ class Root(Peer):
         Request:
             We should act as the root of the network and reply with a neighbour address in a new Advertise Response packet.
 
-        Response:
-            When an Advertise Response packet type arrived we should update our parent peer and send a Join packet to the
-            new parent.
-
         Warnings:
             2. The addresses which still haven't registered to the network can not request any peer discovery message.
             3. Maybe it's not the first time that the source of the packet sends Advertise Request message. This will happen
@@ -202,22 +195,20 @@ class Root(Peer):
 
         :return:
         """
+        t = time.time()
         if packet.is_request():
-            t = time.time()
-            source_ip, source_port = packet.get_source_server_ip(), int(packet.get_source_server_port())
+            source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self.__get_neighbour(sender=(source_ip, source_port))
                 adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address,
                                                                         neighbour=(parent_ip, parent_port))
-                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack)
+                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf())
                 node = self.graph.find_node(source_ip, source_port)
                 if node is None:
                     self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
                 else:
                     node.alive = True
                 self.last_reunion_times[(source_ip, source_port)] = t
-        else:
-            pass
 
     def __handle_register_packet(self, packet):
         """

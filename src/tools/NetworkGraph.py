@@ -116,8 +116,9 @@ class NetworkGraph:
         :return:
         """
         node = GraphNode((ip, port))
-        ip, port = father_address
-        parent = self.find_node(ip, port)
-        node.set_parent(parent)
-        parent.add_child(node)
-        self.nodes.append(node)
+        father_ip, father_port = father_address
+        parent = self.find_node(father_ip, father_port)
+        if parent is not None:
+            node.set_parent(parent)
+            parent.add_child(node)
+            self.nodes.append(node)

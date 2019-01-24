@@ -263,7 +263,7 @@ class Packet:
         """
 
         :return: Server Port address for the sender of the packet.
-        :rtype: str
+        :rtype: int
         """
         return self.source_port
 
