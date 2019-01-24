@@ -250,7 +250,7 @@ class Root(Peer):
         address = (packet.get_source_server_ip(), packet.get_source_server_port())
         if address in self.stream.nodes.keys():  # check if the sender is our neighbor
             brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
-            for node in self.stream.nodes:
+            for node in self.stream.nodes.values():
                 node_address = node.get_server_address()
                 if node_address != address and not node.is_register:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet)
@@ -281,7 +281,7 @@ class Root(Peer):
             last_node = nodes_array[-1]
             sender = nodes_array[0]
             self.graph.turn_on_node(sender)
-            nodes_array = reversed(nodes_array)
+            nodes_array = list(reversed(nodes_array))
             self.last_reunion_times[sender] = t
             reunion_packet = self.packet_factory.new_reunion_packet('RES', self.server_address, nodes_array)
             self.stream.add_message_to_out_buff(last_node, message=reunion_packet.get_buf())

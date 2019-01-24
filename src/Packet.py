@@ -450,7 +450,6 @@ class PacketFactory:
         :rtype: list of Packet
 
         """
-        print(buffer)
         packets = []
         for data in buffer:
             header = data[:20]

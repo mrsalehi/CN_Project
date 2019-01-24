@@ -46,7 +46,7 @@ class Client(Peer):
         self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.is_registered = False
-        self._register()
+        #self._register()
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
@@ -86,9 +86,8 @@ class Client(Peer):
             if msg_split[0] == 'Register':
                 self._register()
             elif msg_split[0] == 'Advertise':
-                print('Advertise msg')
                 self._advertise()
-            elif msg_split[0] == 'SendMessage':
+            elif msg_split[0] == 'send':
                 brd_cast_packet = self.packet_factory.new_message_packet(msg_split[1],
                                                                          source_server_address=self.server_address)
                 self.send_broadcast_packet(brd_cast_packet)
@@ -121,7 +120,6 @@ class Client(Peer):
             for packet in packets:
                 type = packet.get_type()  # Note the second warning in comments
                 if self.is_registered:
-                    #print('registered now...')
                     if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
                         (type == 2) or (self.valid_time == 'acceptance'):
                         self.handle_packet(packet)
@@ -155,7 +153,7 @@ class Client(Peer):
         """
         self.last_reunion_time = time.time()
         while True:
-            time.sleep(4)
+            time.sleep(20)
             t = time.time()
             if self._reunion_mode == 'pending':
                 t = time.time()
@@ -163,12 +161,13 @@ class Client(Peer):
                     adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
                     msg = None
                     self.stream.add_message_to_out_buff(self.root_address, msg)
-                    self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address))
+                    self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address[0], self.root_address[1]))
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
                                                                         nodes_array=[self.server_address])
                 self.stream.add_message_to_out_buff(self.parent, reunion_packet.get_buf())
-                print('Sending reunion packet...')
+                # print('Sending reunion packet...')
+                # print ('time passed', t - self.last_reunion_time)
                 self.last_reunion_time = t
                 self._reunion_mode = 'pending'
 
@@ -186,7 +185,7 @@ class Client(Peer):
         :return:
         """
         msg = broadcast_packet.get_buf()
-        for node in self.stream.nodes:
+        for node in self.stream.nodes.values():
             self.stream.add_message_to_out_buff(node.get_server_address(), message=msg)
 
     def handle_packet(self, packet):
@@ -363,5 +362,4 @@ class Client(Peer):
         """
         if not packet.is_request():
             self.is_registered = True
-        #print('Register packet is handled...')
 

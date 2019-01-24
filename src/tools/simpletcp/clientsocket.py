@@ -95,7 +95,7 @@ class ClientSocket:
             # Keep track of the fact that this is closed.
             self.closed = True
         # Return the response
-        print('Msg sent...')
+        # print('Msg sent...')
         return response
 
     def close(self):

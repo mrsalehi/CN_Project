@@ -46,7 +46,6 @@ class ServerSocket:
         # Save the number of bytes to be received each time we read from
         # a socket
         self.received_bytes = received_bytes
-        print('bbb')
 
     def run(self):
         # Start listening
