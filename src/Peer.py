@@ -53,7 +53,9 @@ class Peer:
 
         :return:
         """
-        pass
+        self.user_interface = UserInterface()
+        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
+        t_run_ui.start()
 
     def handle_user_interface_buffer(self):
         """
@@ -130,7 +132,9 @@ class Peer:
 
         :return:
         """
-        pass
+        for node in self.stream.nodes.values():
+            if not node.is_register:
+                self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet.get_buf())
 
     def handle_packet(self, packet):
         """
@@ -146,15 +150,17 @@ class Peer:
 
         """
         type = packet.get_type()
-        if type is 'Register':
+        print("Recvd packet body: ", packet.get_body())
+        print('Recvd packet type: ', type)
+        if type == 1:
             self.__handle_register_packet(packet)
-        elif type is 'Advertise':
+        elif type == 2:
             self.__handle_advertise_packet(packet)
-        elif type is 'Join':
+        elif type == 3:
             self.__handle_join_packet(packet)
-        elif type is 'Message':
+        elif type == 4:
             self.__handle_message_packet(packet)
-        elif type is 'Reunion':
+        elif type == 5:
             self.__handle_reunion_packet(packet)
         else:
             raise NotImplemented
@@ -188,6 +194,7 @@ class Peer:
 
         :return:
         """
+        print('handle advertise')
         pass
 
     def __handle_register_packet(self, packet):
@@ -205,6 +212,7 @@ class Peer:
         :type packet Packet
         :return:
         """
+        print('handle register')
         pass
 
     def __check_neighbour(self, address):

@@ -53,7 +53,7 @@ class NetworkGraph:
         :return: Best neighbour for sender.
         :rtype: GraphNode
         """
-        if len(self.root.children) == 0:
+        if len(self.root.children) < 2:
             return self.root
 
         visited, queue = set(), collections.deque([self.root])

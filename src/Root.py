@@ -7,7 +7,6 @@ from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
 
-
 class Root(Peer):
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
         """
@@ -41,14 +40,6 @@ class Root(Peer):
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.t_run_reunion_daemon.start()
 
-    def start_user_interface(self):
-        """
-        For starting UserInterface thread.
-
-        :return:
-        """
-        self.user_interface = UserInterface()
-
     def handle_user_interface_buffer(self):
         """
         In every interval, we should parse user command that buffered from our UserInterface.
@@ -62,7 +53,14 @@ class Root(Peer):
             2. Don't forget to clear our UserInterface buffer.
         :return:
         """
-        pass
+        buff = self.user_interface.buffer
+        for msg in buff:
+            msg_split = msg.split()
+            if msg_split[0] == 'send':
+                brd_cast_packet = self.packet_factory.new_message_packet(msg_split[1],
+                                                                         source_server_address=self.server_address)
+                self.send_broadcast_packet(brd_cast_packet)
+        self.user_interface.buffer.clear()
 
     def run(self):
         """
@@ -118,23 +116,6 @@ class Root(Peer):
                     node = self.stream.get_node_by_server(node_address[0], node_address[1])
                     self.stream.remove_node(node)
             time.sleep(2)
-
-    def send_broadcast_packet(self, broadcast_packet):
-        """
-
-        For setting broadcast packets buffer into Nodes out_buff.
-
-        Warnings:
-            1. Don't send Message packets through register_connections.
-
-        :param broadcast_packet: The packet that should be broadcast through the network.
-        :type broadcast_packet: Packet
-
-        :return:
-        """
-        for node in self.stream.nodes:
-            if not node.is_register:
-                self.stream.add_message_to_out_buff(node.get_server_address(), message=broadcast_packet.get_buf())
 
     def handle_packet(self, packet):
         """

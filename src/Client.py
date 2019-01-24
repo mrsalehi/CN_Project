@@ -46,7 +46,8 @@ class Client(Peer):
         self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.is_registered = False
-        #self._register()
+        self._register()    # TODO delete
+        self._advertise()   # TODO delete
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
@@ -56,16 +57,6 @@ class Client(Peer):
     def _advertise(self):
         adv_pack = self.packet_factory.new_advertise_packet('REQ', self.server_address)
         self.stream.add_message_to_out_buff(self.root_address, adv_pack.get_buf())
-
-    def start_user_interface(self):
-        """
-        For starting UserInterface thread.
-
-        :return:
-        """
-        self.user_interface = UserInterface()
-        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
-        t_run_ui.start()
 
     def handle_user_interface_buffer(self):
         """
@@ -121,7 +112,7 @@ class Client(Peer):
                 type = packet.get_type()  # Note the second warning in comments
                 if self.is_registered:
                     if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
-                        (type == 2) or (self.valid_time == 'acceptance'):
+                    (type == 2) or (self.valid_time == 'acceptance'):
                         self.handle_packet(packet)
                 else:
                     if packet.get_type() == 1:
@@ -159,8 +150,7 @@ class Client(Peer):
                 t = time.time()
                 if t - self.last_reunion_time > self.valid_time:
                     adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
-                    msg = None
-                    self.stream.add_message_to_out_buff(self.root_address, msg)
+                    self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf())
                     self.stream.send_messages_to_node(self.stream.get_node_by_server(self.root_address[0], self.root_address[1]))
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
@@ -171,35 +161,23 @@ class Client(Peer):
                 self.last_reunion_time = t
                 self._reunion_mode = 'pending'
 
-    def send_broadcast_packet(self, broadcast_packet):
-        """
-
-        For setting broadcast packets buffer into Nodes out_buff.
-
-        Warnings:
-            1. Don't send Message packets through register_connections.
-
-        :param broadcast_packet: The packet that should be broadcast through the network.
-        :type broadcast_packet: Packet
-
-        :return:
-        """
-        msg = broadcast_packet.get_buf()
-        for node in self.stream.nodes.values():
-            self.stream.add_message_to_out_buff(node.get_server_address(), message=msg)
-
     def handle_packet(self, packet):
         """
+
         This function act as a wrapper for other handle_###_packet methods to handle the packet.
 
         Code design suggestion:
             1. It's better to check packet validation right now; For example Validation of the packet length.
 
         :param packet: The arrived packet that should be handled.
+
         :type packet Packet
+
         """
         type = packet.get_type()
-        print("Recvd packet body and type:  % s , %d" % (packet.get_body(), packet.get_type()))
+        print("Recvd packet body: ", packet.get_body())
+        print('Recvd packet type: ', type)
+        print('')
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
@@ -248,6 +226,7 @@ class Client(Peer):
             parent_port = int(body[-5:])
             join_pack = self.packet_factory.new_join_packet(self.server_address)
             address = (parent_ip, parent_port)
+            print('parent address: ', address)
             self.parent = address
             self.stream.add_node(address)
             self.stream.add_message_to_out_buff(address, join_pack.get_buf())
