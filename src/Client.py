@@ -144,7 +144,7 @@ class Client(Peer):
         """
         self.last_reunion_time = time.time()
         while True:
-            time.sleep(20)
+            time.sleep(4)
             t = time.time()
             if self._reunion_mode == 'pending':
                 t = time.time()
@@ -175,9 +175,9 @@ class Client(Peer):
 
         """
         type = packet.get_type()
-        print("Recvd packet body: ", packet.get_body())
-        print('Recvd packet type: ', type)
-        print('')
+        if type != 5:
+            print("Recvd packet body: ", packet.get_body())
+            print('Recvd packet type: ', type)
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
@@ -254,7 +254,7 @@ class Client(Peer):
         source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
         brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
         if source_address in self.stream.nodes.keys():
-            for node in self.stream.nodes:
+            for node in self.stream.nodes.values():
                 node_address = node.get_server_address()
                 if node_address != source_address:
                     self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
@@ -289,7 +289,7 @@ class Client(Peer):
         n_entries = body[3:5]
         entries = body[5:]
         length = len(entries)
-
+        print('reunion ' + type  + ' ' +  entries)
         if type == 'REQ':
             nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
             nodes_array.append(self.server_address)
@@ -301,6 +301,7 @@ class Client(Peer):
                 self._reunion_mode = 'acceptance'
             else:  # we are not the end node! forward the packet!
                 entries = entries[20:]
+                length -= 20
                 nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
                 next_node_addr = nodes_array[0]
                 reunion_packet = self.packet_factory. \

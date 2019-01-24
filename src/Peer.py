@@ -150,8 +150,9 @@ class Peer:
 
         """
         type = packet.get_type()
-        print("Recvd packet body: ", packet.get_body())
-        print('Recvd packet type: ', type)
+        if type != 5:
+            print("Recvd packet body: ", packet.get_body())
+            print('Recvd packet type: ', type)
         if type == 1:
             self.__handle_register_packet(packet)
         elif type == 2:
@@ -248,7 +249,15 @@ class Peer:
 
         :return:
         """
-        pass
+        source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
+        brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
+        if source_address in self.stream.nodes.keys():
+            for node in self.stream.nodes.values():
+                node_address = node.get_server_address()
+                if node_address != source_address:
+                    self.stream.add_message_to_out_buff(address=node_address, message=brdcast_packet.get_buf())
+        else:
+            pass
 
     def __handle_reunion_packet(self, packet):
         """
