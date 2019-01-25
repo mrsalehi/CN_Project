@@ -1,5 +1,6 @@
 import sys
 import socket
+from config import verbosity
 
 
 class ClientSocket:
@@ -91,7 +92,8 @@ class ClientSocket:
         # Everything is setup, now we must send the data.
         try:
             self._socket.send(data)
-            print('sending ', data)
+            if verbosity == 1:
+                print('sending ', data)
         except OSError:
             print('Time out!!')
         # Keep track of the fact that we've sent data (or attempted to).
@@ -109,7 +111,8 @@ class ClientSocket:
             # Keep track of the fact that this is closed.
             self.closed = True
 
-        print('sent...')
+        if verbosity == 1:
+            print('sent...')
         return response
 
     def close(self):

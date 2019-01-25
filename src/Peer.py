@@ -249,6 +249,7 @@ class Peer:
 
                 :return:
                 """
+        print('Recvd Msg packet body: ', packet.get_body())
         source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
         brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
         if source_address in [node.get_server_address() for node in self.stream.nodes]:

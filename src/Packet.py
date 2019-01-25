@@ -257,20 +257,11 @@ class PacketFactory:
         :return New Register packet.
         :rtype Packet
         """
-        '''
-        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 6), \
-                                         source_ip=source_server_address[0], source_port=source_server_address[1])
-        frame.extend(type.encode('utf8'))
-        if type == 'REQ':
-            frame.extend(address[0].encode('utf8'))
-            frame.extend(address[1].encode('utf8'))
-        elif type == 'RES':
-            frame.extend('ACK'.encode('utf8'))
-        '''
         source_ip, source_port = source_server_address
         if type == 'REQ':
+            address_ip = '.'.join(str(int(part)).zfill(3) for part in address[0].split('.'))
             return Packet(type=1, version=1, length=23, source_ip=source_ip, source_port=source_port,
-                          body=type + address[0] + str(address[1]).zfill(5))
+                          body=type + address_ip + str(address[1]).zfill(5))
         elif type == 'RES':
             return Packet(type=1, version=1, length=6, source_ip=source_ip, source_port=source_port,
                           body=type + 'ACK')
@@ -288,15 +279,6 @@ class PacketFactory:
         :return New advertise packet.
         :rtype Packet
         """
-        '''
-        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4),
-                                         source_ip=source_server_address[0], source_port=source_server_address[1])
-        frame.extend(type.encode('utf8'))
-        if type == 'RES':
-            frame.extend('ACK'.encode('utf8'))
-            frame.extend(neighbour[0].encode('utf8'))
-            frame.extend(neighbour[1].encode('utf8'))
-        '''
         source_ip, source_port = source_server_address
         if type == 'REQ':
             return Packet(type=2, version=1, length=3, source_ip=source_ip, source_port=source_port,
@@ -314,11 +296,6 @@ class PacketFactory:
         :return New join packet.
         :rtype Packet
         """
-        '''
-        frame = PacketFactory.new_header(type=3, length=4,
-                                         source_ip=source_server_address[0], source_port=source_server_address[1])
-        frame.extend('JOIN'.encode('utf8'))
-        '''
         source_ip, source_port = source_server_address
         return Packet(type=3, version=1, length=4, source_ip=source_ip, source_port=source_port, body='JOIN')
 
@@ -334,11 +311,6 @@ class PacketFactory:
         :return: New Message packet.
         :rtype: Packet
         """
-        '''
-        frame = PacketFactory.new_header(type=4, length=len(message),
-                                         source_ip=source_server_address[0], source_port=source_server_address[1])
-        frame.extend(message.encode('utf8'))
-        '''
         source_ip , source_port = source_server_address
         return Packet(type=4, version=1, length=len(message), source_ip=source_ip, source_port=source_port,
                       body=message)
@@ -356,15 +328,6 @@ class PacketFactory:
         :return New reunion packet.
         :rtype Packet
         """
-        '''
-        frame = PacketFactory.new_header(type=2, length=(23 if type == 'REQ' else 4), \
-                                         source_ip=source_address[0], source_port=source_address[1])
-        frame.extend(type.encode('utf8'))
-        frame.extend(len(nodes_array).encode('utf8'))
-        for ip, port in nodes_array:
-            frame.extend(ip.encode('utf8'))
-            frame.extend(port.encode('utf8'))
-        '''
         body = type
         body += str(len(nodes_array)).zfill(2)
         source_ip, source_port = source_address

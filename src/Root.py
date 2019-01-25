@@ -6,6 +6,7 @@ from tools.SemiNode import SemiNode
 from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
+from config import verbosity
 
 class Root(Peer):
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
@@ -108,16 +109,21 @@ class Root(Peer):
 
         :return:
         """
-        valid_time = 40
+        turn_off_time = 16
+        remove_time = 60
         while True:
             t = time.time()
             for node_address, last_reunion_time in self.last_reunion_times.copy().items():
-                if t - last_reunion_time > valid_time:
-                    print('removing a node...')
+                if t - last_reunion_time > remove_time:
+                    print('removing node {}'.format(node_address))
                     self.graph.remove_node(node_address)
                     del self.last_reunion_times[node_address]
                     node = self.stream.get_node_by_server(node_address[0], node_address[1], True)
                     self.stream.remove_node(node)
+                elif turn_off_time < t - last_reunion_time < remove_time:
+                    print('turning off node {}'.format(node_address))
+                    graph_node = self.graph.find_node(node_address[0], node_address[1])
+                    graph_node.alive = False
             time.sleep(2)
 
     def handle_packet(self, packet):
@@ -134,9 +140,10 @@ class Root(Peer):
 
         """
         type = packet.get_type()
-        if type != 5:
-            print("Recvd packet body: ", packet.get_body())
-            print('Recvd packet type: ', type)
+        if verbosity == 1:
+            if type != 5:
+                print("Recvd packet body: ", packet.get_body())
+                print('Recvd packet type: ', type)
         if type == 1:
             self._handle_register_packet(packet)
         elif type == 2:
@@ -194,16 +201,22 @@ class Root(Peer):
                                                                         neighbour=(parent_ip, parent_port))
                 try:
                     self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf(), True)
-                    print('adv response added to buffer')
                 except Exception:
                     print('Oops! Seems that you are adding a message to nonexistent buffer!')
-                node = self.graph.find_node(source_ip, source_port)
-                if node is None:
+                graph_node = self.graph.find_node(source_ip, source_port)
+                if graph_node is None:
                     self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
                 else:
-                    node.alive = True
+                    prev_parent = graph_node.parent
+                    prev_parent_ip, prev_parent_port = prev_parent.address
+                    print('prev_parent of ', source_ip, source_port, ' was: ', prev_parent_ip, prev_parent_port)
+                    prev_parent.children.remove(graph_node)
+                    print('new parent for ', source_ip, source_port , ': ', parent_ip, parent_port)
+                    new_parent = self.graph.find_node(parent_ip, parent_port)
+                    graph_node.parent = new_parent
+                    new_parent.children.append(graph_node)
+                    graph_node.alive = True
                 self.last_reunion_times[(source_ip, source_port)] = t
-                #print(self.last_reunion_times)
 
     def _handle_register_packet(self, packet):
         """

@@ -62,7 +62,7 @@ class NetworkGraph:
             v = queue.popleft()
             if v.address != sender:
                 for u in v.children:
-                    if u not in visited and u.alive:
+                    if u not in visited and u.alive and u.address != sender:
                         if len(u.children) < 2:
                             return u
                         visited.add(u)

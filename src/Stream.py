@@ -66,7 +66,7 @@ class Stream:
 
         :return:
         """
-        print("node ",server_address, set_register_connection, " added to stream nodes")
+        print("node ", server_address, set_register_connection, " added to stream nodes")
         server_ip, server_port = server_address
         server_ip = Node.parse_ip(server_ip)
         self.nodes.append(Node(server_address=(server_ip, server_port), set_register=set_register_connection))

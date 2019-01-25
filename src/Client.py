@@ -4,6 +4,7 @@ from Packet import Packet, PacketFactory
 from UserInterface import UserInterface
 from tools.SemiNode import SemiNode
 from tools.NetworkGraph import NetworkGraph, GraphNode
+from config import verbosity
 import time
 import threading
 import sys
@@ -39,7 +40,7 @@ class Client(Peer):
         self.parent = None  # address of the parent node which will be a tuple
         self.last_reunion_time = 0  # last time a reunion hello packet was sent
         self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
-        self.__is_disconneted = False
+        self.__is_disconnected = False
         self.root_address = root_address
         self.valid_time = 32
         self.adv_sent = False
@@ -47,14 +48,14 @@ class Client(Peer):
         self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.is_registered = False
-        self._register()    # TODO delete
-        self._advertise()   # TODO delete
+        self._register()
+        self._advertise()
         self.t_run.join()
         self.t_reunion_daemon.join()
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
-        reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.root_address)
+        reg_pack = self.packet_factory.new_register_packet('REQ', self.server_address, self.server_address)
         self.stream.add_message_to_out_buff(self.root_address, reg_pack.get_buf(), True)
 
     def _advertise(self):
@@ -108,16 +109,14 @@ class Client(Peer):
         """
         self.start_user_interface()
         while True:
-            if self.__is_disconneted:
+            if self.__is_disconnected:
                 sys.exit()
-            #print('Inside run...')
             t = time.time()
             self.handle_user_interface_buffer()
             in_buff = self.stream.read_in_buf()
             packets = self.packet_factory.parse_buffer(in_buff)
             for packet in packets:
                 type = packet.get_type()
-                print(packet.get_type())
                 if self.is_registered:
                     if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
                     (type == 2) or (self._reunion_mode == 'acceptance'):
@@ -153,7 +152,6 @@ class Client(Peer):
         self.last_reunion_time = time.time()
         while True:
             time.sleep(4)
-            #print('inside reunion deamon...')
             t = time.time()
             if self._reunion_mode == 'pending':
                 #if not self.__is_disconneted:
@@ -168,7 +166,7 @@ class Client(Peer):
                                 self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
                         except Exception:
                             print('Can not advertise to root!')
-                            self.__is_disconneted = True
+                            self.__is_disconnected = True
                             sys.exit()
                     except Exception:
                         print('Out buffer does not exist!')
@@ -197,9 +195,10 @@ class Client(Peer):
 
         """
         type = packet.get_type()
-        if type != 5:
-            print("Recvd packet body: ", packet.get_body())
-            print('Recvd packet type: ', type)
+        if verbosity == 1:
+            if type != 5:
+                print("Recvd packet body: ", packet.get_body())
+                print('Recvd packet type: ', type)
         if type == 1:
             self._handle_register_packet(packet)
         elif type == 2:
@@ -366,5 +365,5 @@ class Client(Peer):
                     self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
             except Exception:
                 print('Can not advertise to root!')
-                self.__is_disconneted = True
+                self.__is_disconnected = True
 

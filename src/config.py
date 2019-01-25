@@ -5,3 +5,4 @@ import random
 
 root_port = 44300
 client_port = random.randint(55500, 55750)
+verbosity = 0
