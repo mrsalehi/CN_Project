@@ -5,6 +5,7 @@ from tools.SemiNode import SemiNode
 from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
+from config import has_GUI
 
 """
     Peer is our main object in this project.
@@ -15,7 +16,7 @@ import threading
 
 
 class Peer:
-    def __init__(self, server_ip, server_port, is_root=False, root_address=None):
+    def __init__(self, server_ip, server_port, user_interface=None, is_root=False, root_address=None):
         """
         The Peer object constructor.
 
@@ -45,7 +46,7 @@ class Peer:
         self.server_address = (server_ip, server_port)
         self.stream = Stream(server_ip, server_port)
         self.packet_factory = PacketFactory()
-        self.user_interface = None
+        self.user_interface = user_interface
 
     def start_user_interface(self):
         """
@@ -53,9 +54,11 @@ class Peer:
 
         :return:
         """
-        self.user_interface = UserInterface()
-        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
-        t_run_ui.start()
+        if not has_GUI:
+            self.user_interface = UserInterface(self.server_address)
+            t_run_ui = threading.Thread(target=self.user_interface.run, args=())
+            t_run_ui.start()
+
 
     def handle_user_interface_buffer(self):
         """
@@ -250,7 +253,8 @@ class Peer:
                 :return:
                 """
         source_address = (packet.get_source_server_ip(), int(packet.get_source_server_port()))
-        print('Recvd Msg packet {} body from {}: '.format(packet.get_body(), source_address))
+        print('Recvd Msg packet {} from {}: '.format(packet.get_body(), source_address))
+        self.user_interface.printer.append('{}: {}'.format(source_address, packet.get_body()))
         brdcast_packet = self.packet_factory.new_message_packet(packet.get_body(), self.server_address)
         if source_address in [node.get_server_address() for node in self.stream.nodes]:
             for node in self.stream.nodes:

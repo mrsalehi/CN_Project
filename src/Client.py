@@ -11,7 +11,7 @@ import sys
 
 
 class Client(Peer):
-    def __init__(self, server_ip, server_port, is_root=False, root_address=None):
+    def __init__(self, server_ip, server_port, user_interface=None, is_root=False, root_address=None):
         """
         The Peer object constructor.
 
@@ -36,7 +36,8 @@ class Client(Peer):
         :type is_root: bool
         :type root_address: tuple
         """
-        super(Client, self).__init__(server_ip, server_port, is_root, root_address)
+        super(Client, self).__init__(server_ip, server_port, user_interface, is_root, root_address)
+        self.start_user_interface()
         self.parent = None  # address of the parent node which will be a tuple
         self.last_reunion_time = 0  # last time a reunion hello packet was sent
         self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
@@ -48,8 +49,8 @@ class Client(Peer):
         self.t_run.start()
         self.t_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.is_registered = False
-        self._register()
-        self._advertise()
+        # self._register()
+        # self._advertise()
         self.t_run.join()
         self.t_reunion_daemon.join()
 
@@ -80,7 +81,7 @@ class Client(Peer):
             msg_split = msg.split()
             if msg_split[0] == 'Register':
                 self._register()
-            elif msg_split[0] == 'Advertise':
+            elif msg_split[0] == 'Advertise' and self.is_registered:
                 self._advertise()
             elif msg_split[0] == 'send':
                 brd_cast_packet = self.packet_factory.new_message_packet(msg_split[1],
@@ -107,7 +108,6 @@ class Client(Peer):
 
         :return:
         """
-        self.start_user_interface()
         while True:
             if self.__is_disconnected:
                 sys.exit()
@@ -250,6 +250,7 @@ class Client(Peer):
             join_pack = self.packet_factory.new_join_packet(self.server_address)
             parent_address = (parent_ip, parent_port)
             print('parent address: ', parent_address)
+            self.user_interface.printer.append('parent address: (%s, %d)' % (parent_address[0], parent_address[1]))
             self.parent = parent_address
             self.stream.add_node(parent_address)
             self.stream.add_message_to_out_buff(parent_address, join_pack.get_buf())

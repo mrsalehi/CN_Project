@@ -10,7 +10,7 @@ from config import verbosity
 
 
 class Root(Peer):
-    def __init__(self, server_ip, server_port, is_root=False, root_address=None):
+    def __init__(self, server_ip, server_port, user_interface=None, is_root=False, root_address=None):
         """
         The Peer object constructor.
 
@@ -34,7 +34,7 @@ class Root(Peer):
         :type is_root: bool
         :type root_address: tuple
         """
-        super(Root, self).__init__(server_ip=server_ip, server_port=server_port)
+        super(Root, self).__init__(server_ip=server_ip, server_port=server_port, user_interface=user_interface)
         self.start_user_interface()
         self.last_reunion_times = {}
         self.graph = NetworkGraph(GraphNode(self.server_address))
@@ -42,11 +42,6 @@ class Root(Peer):
         self.t_run.start()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.t_run_reunion_daemon.start()
-
-    def start_user_interface(self):
-        self.user_interface = UserInterface()
-        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
-        t_run_ui.start()
 
     def handle_user_interface_buffer(self):
         """
