@@ -53,6 +53,7 @@ class NetworkGraph:
         :return: Best neighbour for sender.
         :rtype: GraphNode
         """
+        sender_node = self.find_node(sender[0], sender[1])
         if len(self.root.children) < 2:
             return self.root
 
@@ -64,16 +65,17 @@ class NetworkGraph:
                 for u in v.children:
                     if u not in visited and u.alive and u.address != sender:
                         if len(u.children) < 2:
-                            return u
+                            if sender_node is None or (u is not sender_node and sender_node not in u.children):
+                                return u
                         visited.add(u)
                         queue.append(u)
-
         return None
 
     def find_node(self, ip, port):
         for node in self.nodes:
             if node.address == (ip, port):
                 return node
+        return None
 
     def turn_on_node(self, node_address):
         ip, port = node_address
@@ -97,6 +99,8 @@ class NetworkGraph:
                     u.alive = False
                     visited.add(u)
                     queue.append(u)
+        parent = node.parent
+        parent.children.remove(node)
         self.nodes.remove(node)
 
     def add_node(self, ip, port, father_address):

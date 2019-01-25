@@ -8,6 +8,7 @@ import time
 import threading
 from config import verbosity
 
+
 class Root(Peer):
     def __init__(self, server_ip, server_port, is_root=False, root_address=None):
         """
@@ -120,9 +121,11 @@ class Root(Peer):
                     del self.last_reunion_times[node_address]
                     node = self.stream.get_node_by_server(node_address[0], node_address[1], True)
                     self.stream.remove_node(node)
+                    # TODO: remove node ??
                 elif turn_off_time < t - last_reunion_time < remove_time:
-                    print('turning off node {}'.format(node_address))
                     graph_node = self.graph.find_node(node_address[0], node_address[1])
+                    if graph_node.alive:
+                        print('turning off node {}'.format(node_address))
                     graph_node.alive = False
             time.sleep(2)
 
@@ -196,7 +199,7 @@ class Root(Peer):
             print('\t Recvd Adv Packet from ', source_ip, source_port)
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self._get_neighbour(sender=(source_ip, source_port))
-                #print('parent ip and port: ', parent_ip, parent_port)
+                # print('parent ip and port: ', parent_ip, parent_port)
                 adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address,
                                                                         neighbour=(parent_ip, parent_port))
                 try:
@@ -211,7 +214,7 @@ class Root(Peer):
                     prev_parent_ip, prev_parent_port = prev_parent.address
                     print('prev_parent of ', source_ip, source_port, ' was: ', prev_parent_ip, prev_parent_port)
                     prev_parent.children.remove(graph_node)
-                    print('new parent for ', source_ip, source_port , ': ', parent_ip, parent_port)
+                    print('new parent for ', source_ip, source_port, ': ', parent_ip, parent_port)
                     new_parent = self.graph.find_node(parent_ip, parent_port)
                     graph_node.parent = new_parent
                     new_parent.children.append(graph_node)
@@ -269,7 +272,7 @@ class Root(Peer):
         :param packet: Arrived reunion packet
         :return:
         """
-        #print('reunion packet recvd...')
+        # print('reunion packet recvd...')
         t = time.time()
         body = packet.get_body()
         type = body[:3]

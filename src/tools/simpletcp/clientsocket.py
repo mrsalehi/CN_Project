@@ -28,8 +28,8 @@ class ClientSocket:
             raise ValueError
         # Actually create an INET, STREAMing socket.socket.
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #self._socket.settimeout(5)
-        #print('socket time out: ', self._socket.gettimeout())
+        self._socket.settimeout(5)
+        print('socket time out: ', self._socket.gettimeout())
         # Save the number of bytes to be read in response
         self.received_bytes = received_bytes
         # Save whether this socket is single-use or not.
