@@ -1,4 +1,7 @@
 import random
 
-root_port = 44328
-client_port = 57843
+#root_port = 44320
+#client_port = 57853
+
+root_port = 44300
+client_port = random.randint(55500, 55750)

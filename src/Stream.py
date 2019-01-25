@@ -127,7 +127,7 @@ class Stream:
         if node is not None:
             node.add_message_to_out_buff(message)
         else:
-            raise RuntimeError
+            raise Exception
 
     def read_in_buf(self):
         """
@@ -153,9 +153,11 @@ class Stream:
         """
         try:
             node.send_message()
-        except OSError:
-            node = self.get_server_address(node.get_server_address())
+        except Exception:
+            print('Can not send to {} {}... Removing the node from stream'.
+                  format(node.get_server_address(), node.is_register))
             self.nodes.remove(node)
+            raise Exception
 
     def send_out_buf_messages(self, only_register=False):
         """
@@ -163,5 +165,11 @@ class Stream:
 
         :return:
         """
-        for node in self.nodes:
-            self.send_messages_to_node(node)
+        disconnected_nodes = []
+        for node in self.nodes.copy():
+            try:
+                self.send_messages_to_node(node)
+            except Exception:
+                disconnected_nodes.append(node.get_server_address())
+        return disconnected_nodes
+

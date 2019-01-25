@@ -26,7 +26,6 @@ class TCPServer:
         )
 
     def run(self):
-        print('TCPServer run...')
         self.server_socket.run()
 
     @property

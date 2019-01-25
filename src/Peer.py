@@ -195,7 +195,7 @@ class Peer:
 
         :return:
         """
-        print('handle advertise')
+        print('handle advertise of Peer')
         pass
 
     def _handle_register_packet(self, packet):
@@ -213,7 +213,7 @@ class Peer:
         :type packet Packet
         :return:
         """
-        print('handle register')
+        print('handle register of Peer...')
         pass
 
     def _check_neighbour(self, address):

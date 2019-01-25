@@ -6,6 +6,7 @@ from tools.SemiNode import SemiNode
 from tools.NetworkGraph import NetworkGraph, GraphNode
 import time
 import threading
+import sys
 
 
 class Client(Peer):
@@ -38,9 +39,9 @@ class Client(Peer):
         self.parent = None  # address of the parent node which will be a tuple
         self.last_reunion_time = 0  # last time a reunion hello packet was sent
         self._reunion_mode = None  # either 'pending' or 'acceptance' after registration
+        self.__is_disconneted = False
         self.root_address = root_address
-        self.start_user_interface()
-        self.valid_time = 20
+        self.valid_time = 32
         self.adv_sent = False
         self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.start()
@@ -48,6 +49,8 @@ class Client(Peer):
         self.is_registered = False
         self._register()    # TODO delete
         self._advertise()   # TODO delete
+        self.t_run.join()
+        self.t_reunion_daemon.join()
 
     def _register(self):
         self.stream.add_node(self.root_address, set_register_connection=True)
@@ -103,22 +106,27 @@ class Client(Peer):
 
         :return:
         """
+        self.start_user_interface()
         while True:
+            if self.__is_disconneted:
+                sys.exit()
+            #print('Inside run...')
             t = time.time()
             self.handle_user_interface_buffer()
             in_buff = self.stream.read_in_buf()
             packets = self.packet_factory.parse_buffer(in_buff)
             for packet in packets:
-                type = packet.get_type()  # Note the second warning in comments
+                type = packet.get_type()
+                print(packet.get_type())
                 if self.is_registered:
                     if (t - self.last_reunion_time <= self.valid_time and self._reunion_mode == 'pending') or \
-                    (type == 2) or (self.valid_time == 'acceptance'):
+                    (type == 2) or (self._reunion_mode == 'acceptance'):
                         self.handle_packet(packet)
                 else:
                     if packet.get_type() == 1:
-                        self.handle_packet(packet) # TODO
+                        self.handle_packet(packet)
 
-            self.stream.send_out_buf_messages()
+            self.__send()
             self.stream.clear_in_buff()
             time.sleep(2)
 
@@ -145,20 +153,33 @@ class Client(Peer):
         self.last_reunion_time = time.time()
         while True:
             time.sleep(4)
+            #print('inside reunion deamon...')
             t = time.time()
             if self._reunion_mode == 'pending':
-                t = time.time()
+                #if not self.__is_disconneted:
+                    #print('No response after {} seconds...'.format(t - self.last_reunion_time))
                 if t - self.last_reunion_time > self.valid_time:
+                    print('Elapsed time is more than {} sec. Trying to advertise again...'.format(self.valid_time))
                     adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
-                    self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf(), True)
-                    self.stream.send_messages_to_node(
-                        self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
+                    try:
+                        self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf(), True)
+                        try:
+                            self.stream.send_messages_to_node(
+                                self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
+                        except Exception:
+                            print('Can not advertise to root!')
+                            self.__is_disconneted = True
+                            sys.exit()
+                    except Exception:
+                        print('Out buffer does not exist!')
+                        sys.exit()
+
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
                                                                         nodes_array=[self.server_address])
                 self.stream.add_message_to_out_buff(self.parent, reunion_packet.get_buf())
-                # print('Sending reunion packet...')
-                # print ('time passed', t - self.last_reunion_time)
+                #print('Sending reunion packet...')
+                #print ('Elapsed time since last reunion: ', t - self.last_reunion_time)
                 self.last_reunion_time = t
                 self._reunion_mode = 'pending'
 
@@ -235,8 +256,6 @@ class Client(Peer):
             if not self.adv_sent:
                 self.adv_sent = True
                 self.t_reunion_daemon.start()
-        else:
-            pass
 
     def _handle_message_packet(self, packet):
         """
@@ -282,7 +301,7 @@ class Client(Peer):
         n_entries = body[3:5]
         entries = body[5:]
         length = len(entries)
-        # print('reunion ' + type + ' ' +  entries)
+        #print('reunion ' + type + ' ' +  entries)
         if type == 'REQ':
             nodes_array = [(entries[i:i + 15], int(entries[i + 15:i + 20])) for i in range(0, length, 20)]
             nodes_array.append(self.server_address)
@@ -335,4 +354,17 @@ class Client(Peer):
         """
         if not packet.is_request():
             self.is_registered = True
+
+    def __send(self):
+        disconnected_nodes = self.stream.send_out_buf_messages()
+        if self.parent in disconnected_nodes:
+            adv_packet = self.packet_factory.new_advertise_packet('REQ', self.server_address)
+            self.stream.add_message_to_out_buff(self.root_address, adv_packet.get_buf(), True)
+            print('sending advertise to root...')
+            try:
+                self.stream.send_messages_to_node(
+                    self.stream.get_node_by_server(self.root_address[0], self.root_address[1], True))
+            except Exception:
+                print('Can not advertise to root!')
+                self.__is_disconneted = True
 

@@ -63,7 +63,7 @@ class NetworkGraph:
             if v.address != sender:
                 for u in v.children:
                     if u not in visited and u.alive:
-                        if len(u.children) < 1:
+                        if len(u.children) < 2:
                             return u
                         visited.add(u)
                         queue.append(u)

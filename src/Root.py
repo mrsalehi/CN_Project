@@ -33,12 +33,18 @@ class Root(Peer):
         :type root_address: tuple
         """
         super(Root, self).__init__(server_ip=server_ip, server_port=server_port)
+        self.start_user_interface()
         self.last_reunion_times = {}
         self.graph = NetworkGraph(GraphNode(self.server_address))
         self.t_run = threading.Thread(target=self.run, args=())
         self.t_run.start()
         self.t_run_reunion_daemon = threading.Thread(target=self.run_reunion_daemon, args=())
         self.t_run_reunion_daemon.start()
+
+    def start_user_interface(self):
+        self.user_interface = UserInterface()
+        t_run_ui = threading.Thread(target=self.user_interface.run, args=())
+        t_run_ui.start()
 
     def handle_user_interface_buffer(self):
         """
@@ -47,10 +53,6 @@ class Root(Peer):
             1. Register:  With this command, the client send a Register Request packet to the root of the network.
             2. Advertise: Send an Advertise Request to the root of the network for finding first hope.
             3. SendMessage: The following string will be added to a new Message packet and broadcast through the network.
-
-        Warnings:
-            1. Ignore irregular commands from the user.
-            2. Don't forget to clear our UserInterface buffer.
         :return:
         """
         buff = self.user_interface.buffer
@@ -82,8 +84,8 @@ class Root(Peer):
         """
         while True:
             in_buff = self.stream.read_in_buf()
+            self.handle_user_interface_buffer()
             packets = self.packet_factory.parse_buffer(in_buff)
-            # print(packets)
             for packet in packets:
                 self.handle_packet(packet)
             self.stream.send_out_buf_messages()
@@ -106,11 +108,12 @@ class Root(Peer):
 
         :return:
         """
-        valid_time = 40  # TODO: Finding the proper value of valid_time
+        valid_time = 40
         while True:
             t = time.time()
             for node_address, last_reunion_time in self.last_reunion_times.copy().items():
                 if t - last_reunion_time > valid_time:
+                    print('removing a node...')
                     self.graph.remove_node(node_address)
                     del self.last_reunion_times[node_address]
                     node = self.stream.get_node_by_server(node_address[0], node_address[1], True)
@@ -183,17 +186,24 @@ class Root(Peer):
         t = time.time()
         if packet.is_request():
             source_ip, source_port = packet.get_source_server_ip(), packet.get_source_server_port()
+            print('\t Recvd Adv Packet from ', source_ip, source_port)
             if self.__check_registered((source_ip, source_port)):
                 parent_ip, parent_port = self._get_neighbour(sender=(source_ip, source_port))
+                #print('parent ip and port: ', parent_ip, parent_port)
                 adv_res_pack = self.packet_factory.new_advertise_packet('RES', self.server_address,
                                                                         neighbour=(parent_ip, parent_port))
-                self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf(), True)
+                try:
+                    self.stream.add_message_to_out_buff((source_ip, source_port), adv_res_pack.get_buf(), True)
+                    print('adv response added to buffer')
+                except Exception:
+                    print('Oops! Seems that you are adding a message to nonexistent buffer!')
                 node = self.graph.find_node(source_ip, source_port)
                 if node is None:
                     self.graph.add_node(source_ip, source_port, (parent_ip, parent_port))
                 else:
                     node.alive = True
                 self.last_reunion_times[(source_ip, source_port)] = t
+                #print(self.last_reunion_times)
 
     def _handle_register_packet(self, packet):
         """
@@ -246,6 +256,7 @@ class Root(Peer):
         :param packet: Arrived reunion packet
         :return:
         """
+        #print('reunion packet recvd...')
         t = time.time()
         body = packet.get_body()
         type = body[:3]
@@ -261,8 +272,6 @@ class Root(Peer):
             self.last_reunion_times[sender] = t
             reunion_packet = self.packet_factory.new_reunion_packet('RES', self.server_address, nodes_array)
             self.stream.add_message_to_out_buff(last_node, message=reunion_packet.get_buf())
-        else:
-            raise NotImplementedError
 
     def _handle_join_packet(self, packet):
         address = (packet.get_source_server_ip(), packet.get_source_server_port())

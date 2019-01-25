@@ -27,13 +27,18 @@ class ClientSocket:
             raise ValueError
         # Actually create an INET, STREAMing socket.socket.
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.settimeout(5)
+        #print('socket time out: ', self._socket.gettimeout())
         # Save the number of bytes to be read in response
         self.received_bytes = received_bytes
         # Save whether this socket is single-use or not.
         self.single_use = single_use
         # If this isn't a single-use socket, connect right away.
         if not self.single_use:
-            self._socket.connect((self.connect_ip, self.connect_port))
+            try:
+                self._socket.connect((self.connect_ip, self.connect_port))
+            except ConnectionRefusedError:
+                print('Connection refused. Please check out if the server exists.')
             # Keep track of whether this socket has been closed.
             self.closed = False
         # Keep track of whether this socket has been used, so we can
@@ -84,18 +89,27 @@ class ClientSocket:
             print("data must be a string or bytes", file=sys.stderr)
             raise ValueError
         # Everything is setup, now we must send the data.
-        self._socket.send(data)
+        try:
+            self._socket.send(data)
+            print('sending ', data)
+        except OSError:
+            print('Time out!!')
         # Keep track of the fact that we've sent data (or attempted to).
         self.used = True
         # Now read the response:
-        response = self._socket.recv(self.received_bytes)
+        response = None
+        try:
+            response = self._socket.recv(self.received_bytes)
+        except ConnectionResetError:
+            raise Exception
+
         # If this socket is single-use, destroy the connection.
         if self.single_use:
             self._socket.close()
             # Keep track of the fact that this is closed.
             self.closed = True
-        # Return the response
-        # print('Msg sent...')
+
+        print('sent...')
         return response
 
     def close(self):

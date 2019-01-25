@@ -19,12 +19,9 @@ class Node:
         """
         self.server_ip = Node.parse_ip(server_address[0])
         self.server_port = server_address[1]
-        self.client_socket = ClientSocket(mode='localhost', port=self.server_port, single_use=False)  # TODO
+        self.client_socket = ClientSocket(mode='localhost', port=self.server_port, single_use=False)
         self.is_root = set_root
         self.is_register = set_register
-
-        #print("Server Address: ", server_address)
-
         self.out_buff = []
 
     def send_message(self):
@@ -34,8 +31,10 @@ class Node:
         :return:
         """
         for data in self.out_buff:
-            # print("Sending msg: ", data)
-            self.client_socket.send(data)
+            try:
+                self.client_socket.send(data)
+            except Exception:
+                raise Exception
         self.out_buff.clear()
 
     def add_message_to_out_buff(self, message):
