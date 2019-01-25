@@ -170,16 +170,16 @@ class Client(Peer):
                             sys.exit()
                     except Exception:
                         print('Out buffer does not exist!')
-                        sys.exit()
 
             else:
                 reunion_packet = self.packet_factory.new_reunion_packet('REQ', source_address=self.server_address,
                                                                         nodes_array=[self.server_address])
-                self.stream.add_message_to_out_buff(self.parent, reunion_packet.get_buf())
-                #print('Sending reunion packet...')
-                #print ('Elapsed time since last reunion: ', t - self.last_reunion_time)
-                self.last_reunion_time = t
-                self._reunion_mode = 'pending'
+                try:
+                    self.stream.add_message_to_out_buff(self.parent, reunion_packet.get_buf())
+                    self.last_reunion_time = t
+                    self._reunion_mode = 'pending'
+                except Exception:
+                    pass
 
     def handle_packet(self, packet):
         """
@@ -242,6 +242,8 @@ class Client(Peer):
         :return:
         """
         if not packet.is_request():
+            if self.adv_sent:
+                prev_parent = self.parent
             body = packet.get_body()
             parent_ip = body[3: 18]
             parent_port = int(body[-5:])
@@ -255,6 +257,11 @@ class Client(Peer):
             if not self.adv_sent:
                 self.adv_sent = True
                 self.t_reunion_daemon.start()
+            else:
+                prev_parent_node = self.stream.get_node_by_server(prev_parent[0], prev_parent[1], False)
+                if prev_parent_node is not None:
+                    self.stream.remove_node(prev_parent_node)
+
 
     def _handle_message_packet(self, packet):
         """
@@ -306,7 +313,11 @@ class Client(Peer):
             nodes_array.append(self.server_address)
             reunion_packet = self.packet_factory. \
                 new_reunion_packet('REQ', self.server_address, nodes_array)
-            self.stream.add_message_to_out_buff(self.parent, message=reunion_packet.get_buf())
+            try:
+                self.stream.add_message_to_out_buff(self.parent, message=reunion_packet.get_buf())
+            except Exception:
+                pass  # Msg can not be added to parent's node buffer and it will be ignored
+
         elif type == 'RES':
             if length == 20:  # we are the end node!
                 self._reunion_mode = 'acceptance'
